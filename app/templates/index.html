@@ -1,39 +1,332 @@
-{% extends "base.html" %}
-{% block title %}CAWASMA Dashboard{% endblock %}
-{% block content %}
-<section class="panel launch-panel">
-  <form method="post" action="{{ url_for('main.launch_scan') }}" class="launch-form">
-    <label>
-      Target URL
-      <input name="target_url" type="url" placeholder="https://example.com" required>
-    </label>
-    <label>
-      Scan Profile
-      <select name="profile">
-        <option>Quick</option>
-        <option selected>Standard</option>
-        <option>Deep</option>
-      </select>
-    </label>
-    <label>
-      Bearer Token
-      <input name="auth_token" type="text" placeholder="Optional authentication token">
-    </label>
-    <button type="submit">Launch Scan</button>
-  </form>
+{% extends "base.html" %} {% block title %}CAWASMA Dashboard{% endblock %} {% block
+content %}
+<section class="hero-section">
+  <!-- <div class="container hero-grid">
+    <div class="hero-copy">
+      <h1 class="hero-title fade-up delay-1">
+        Detect.<br />
+        Analyze.<br />
+        <span>Secure.</span>
+      </h1>
+      <p class="hero-subtitle fade-up delay-2">
+        A black-box scanning platform that applies context-aware CVSS adjustment
+        and exploit-chain correlation to present backend results through a
+        stronger, demo-ready frontend experience.
+      </p>
+      <div class="hero-actions fade-up delay-3">
+        <a class="btn btn-primary" href="#launch-scan"
+          ><i class="bi bi-search"></i> Launch Scan</a
+        >
+        <a class="btn btn-outline" href="#recent-scans"
+          ><i class="bi bi-grid-1x2"></i> View Dashboard</a
+        >
+      </div>
+    </div>
+  </div> -->
 </section>
 
-<section class="panel">
-  <h2>Recent Scans</h2>
-  <div class="scan-list">
-    {% for scan in scans %}
-      <a class="scan-card" href="{{ url_for('main.scan_detail', scan_id=scan.id) }}">
-        <strong>{{ scan.target_url }}</strong>
-        <span>{{ scan.profile }} · {{ scan.status }}</span>
-      </a>
-    {% else %}
-      <p class="muted">No scans yet.</p>
-    {% endfor %}
+<section class="dashboard-section" id="launch-scan">
+  <div class="container section-stack">
+    <div class="section-head fade-up">
+      <div class="section-eyebrow">Analysis</div>
+      <h2>Launch New Scan</h2>
+      <p>
+        Start a CAWASMA analysis by submitting a target URL. The scanner will
+        crawl reachable routes, evaluate security misconfigurations, and record
+        findings for review in the dashboard.
+      </p>
+    </div>
+
+    <div class="launch-layout">
+      <div class="panel panel-large fade-up delay-1">
+        <form
+          method="post"
+          action="{{ url_for('main.launch_scan') }}"
+          class="launch-form"
+        >
+          <div class="field-block field-span-2">
+            <label class="field-label" for="target_url"
+              >Target URL / API Endpoint</label
+            >
+            <input
+              id="target_url"
+              name="target_url"
+              type="url"
+              class="field-input"
+              placeholder="Enter target URL or API endpoint"
+              required
+            />
+          </div>
+
+          <div class="field-block">
+            <label class="field-label" for="profile">Scan Profile</label>
+            <select
+              id="profile"
+              name="profile"
+              class="field-input field-select"
+            >
+              <option>Quick</option>
+              <option selected>Standard</option>
+              <option>Deep</option>
+            </select>
+          </div>
+
+          <div class="field-block field-span-2 form-actions">
+            <button class="btn btn-primary" type="submit">
+              <i class="bi bi-search"></i> Scan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-section" id="recent-scans">
+  <div class="container section-stack">
+    <div class="section-head fade-up">
+      <div class="section-eyebrow">Overview</div>
+      <h2>Security Dashboard</h2>
+      <p>
+        Review the latest CAWASMA scan sessions, severity distributions, and
+        scoring snapshots generated from the analysis pipeline.
+      </p>
+    </div>
+    <!-- 
+    <div class="summary-grid">
+      <article class="summary-card tone-strong fade-up">
+        <span class="summary-label">Critical Findings</span>
+        <strong class="summary-value"
+          >{{ dashboard_stats.critical_findings }}</strong
+        >
+        <span class="summary-meta"
+          >Highest priority issues detected so far</span
+        >
+      </article>
+      <article class="summary-card fade-up delay-1">
+        <span class="summary-label">High Severity</span>
+        <strong class="summary-value"
+          >{{ dashboard_stats.high_findings }}</strong
+        >
+        <span class="summary-meta"
+          >Elevated risk requiring remediation planning</span
+        >
+      </article>
+      <article class="summary-card fade-up delay-2">
+        <span class="summary-label">Medium Severity</span>
+        <strong class="summary-value"
+          >{{ dashboard_stats.medium_findings }}</strong
+        >
+        <span class="summary-meta"
+          >Notable findings across assessed targets</span
+        >
+      </article>
+      <article class="summary-card fade-up delay-3">
+        <span class="summary-label">Low Severity</span>
+        <strong class="summary-value"
+          >{{ dashboard_stats.low_findings }}</strong
+        >
+        <span class="summary-meta"
+          >Lower-risk issues captured in reporting</span
+        >
+      </article>
+    </div> -->
+
+    <div class="dashboard-grid dashboard-grid--full">
+      <div class="panel panel-large fade-up">
+        <div class="mini-head">
+          <span class="mini-title">Recent Scans</span>
+          <span class="mini-tag">Latest 10 sessions</span>
+        </div>
+        <div class="table-wrap">
+          <table class="scan-table">
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Findings</th>
+                <th>Top CVSS</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in recent_scans %}
+              <tr data-scan-row>
+                <td data-label="Target">
+                  <div class="table-target">{{ item.scan.target_url }}</div>
+                  <div class="table-sub">
+                    {{ item.scan.profile }} profile · {{ item.endpoint_count }}
+                    endpoints · {{ item.chain_count }} chains
+                  </div>
+                  <button
+                    class="scan-mobile-toggle"
+                    type="button"
+                    data-scan-row-toggle
+                    aria-expanded="false"
+                  >
+                    Show More
+                  </button>
+                </td>
+                <td data-label="Status">
+                  <span
+                    class="table-status status-{{ item.scan.status|lower }}"
+                  >
+                    <span class="status-dot"></span>{{
+                    item.scan.status|capitalize }}
+                  </span>
+                </td>
+                <td data-label="Findings">
+                  <div class="severity-stack">
+                    <span class="severity-pill severity-critical"
+                      >{{ item.severity_counts.critical }}C</span
+                    >
+                    <span class="severity-pill severity-high"
+                      >{{ item.severity_counts.high }}H</span
+                    >
+                    <span class="severity-pill severity-medium"
+                      >{{ item.severity_counts.medium }}M</span
+                    >
+                    <span class="severity-pill severity-low"
+                      >{{ item.severity_counts.low }}L</span
+                    >
+                  </div>
+                </td>
+                <td class="table-score" data-label="Top CVSS">
+                  {% if item.top_score is not none %} {{
+                  "%.1f"|format(item.top_score) }} {% else %} -- {% endif %}
+                </td>
+                <td class="table-date" data-label="Created">
+                  {{ item.scan.created_at.strftime("%Y-%m-%d %H:%M") if
+                  item.scan.created_at else "--" }}
+                </td>
+                <td data-label="Action">
+                  <a
+                    class="btn btn-outline btn-small"
+                    href="{{ url_for('main.scan_detail', scan_id=item.scan.id) }}"
+                    >Open</a
+                  >
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="empty-state">
+                  No scans are available yet. Launch the first scan above to
+                  populate the dashboard.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- <aside class="panel fade-up delay-1">
+        <div class="mini-head">
+          <span class="mini-title">System Snapshot</span>
+          <span class="mini-tag">Live from DB</span>
+        </div>
+        <div class="progress-list">
+          <div>
+            <div class="progress-head">
+              <span>Critical</span
+              ><strong>{{ dashboard_stats.critical_findings }}</strong>
+            </div>
+            <div class="progress-bar">
+              <span
+                style="width: {{ 100 if dashboard_stats.total_findings == 0 else (dashboard_stats.critical_findings / dashboard_stats.total_findings * 100)|round(0, 'floor') }}%"
+              ></span>
+            </div>
+          </div>
+          <div>
+            <div class="progress-head">
+              <span>High</span
+              ><strong>{{ dashboard_stats.high_findings }}</strong>
+            </div>
+            <div class="progress-bar">
+              <span
+                style="width: {{ 100 if dashboard_stats.total_findings == 0 else (dashboard_stats.high_findings / dashboard_stats.total_findings * 100)|round(0, 'floor') }}%"
+              ></span>
+            </div>
+          </div>
+          <div>
+            <div class="progress-head">
+              <span>Medium</span
+              ><strong>{{ dashboard_stats.medium_findings }}</strong>
+            </div>
+            <div class="progress-bar">
+              <span
+                style="width: {{ 100 if dashboard_stats.total_findings == 0 else (dashboard_stats.medium_findings / dashboard_stats.total_findings * 100)|round(0, 'floor') }}%"
+              ></span>
+            </div>
+          </div>
+          <div>
+            <div class="progress-head">
+              <span>Low</span
+              ><strong>{{ dashboard_stats.low_findings }}</strong>
+            </div>
+            <div class="progress-bar">
+              <span
+                style="width: {{ 100 if dashboard_stats.total_findings == 0 else (dashboard_stats.low_findings / dashboard_stats.total_findings * 100)|round(0, 'floor') }}%"
+              ></span>
+            </div>
+          </div>
+        </div>
+      </aside> -->
+    </div>
+  </div>
+</section>
+
+<section class="features-section" id="workflow">
+  <div class="container section-stack">
+    <div class="section-head fade-up">
+      <div class="section-eyebrow">Workflow</div>
+      <h2>How CAWASMA Works</h2>
+      <p>
+        CAWASMA follows a focused analysis cycle: launch a scan, discover
+        endpoints, evaluate misconfigurations, prioritize findings, and review
+        the resulting report.
+      </p>
+    </div>
+
+    <div class="feature-grid">
+      <article class="feature-card fade-up">
+        <span class="feature-icon"><i class="bi bi-link-45deg"></i></span>
+        <h3>1. Enter Target</h3>
+        <p>
+          Submit the target web application or API endpoint that CAWASMA should
+          inspect.
+        </p>
+      </article>
+      <article class="feature-card fade-up delay-1">
+        <span class="feature-icon"><i class="bi bi-diagram-3"></i></span>
+        <h3>2. Discover and Analyze</h3>
+        <p>
+          The crawler maps reachable routes and the analysis engine evaluates
+          headers, responses, cookies, and exposure signals.
+        </p>
+      </article>
+      <article class="feature-card fade-up delay-2">
+        <span class="feature-icon"
+          ><i class="bi bi-shield-exclamation"></i
+        ></span>
+        <h3>3. Findings Are Prioritized</h3>
+        <p>
+          Context-aware scoring adjusts severity and correlates related signals
+          into actionable findings and exploit chains.
+        </p>
+      </article>
+      <article class="feature-card fade-up delay-3">
+        <span class="feature-icon"
+          ><i class="bi bi-file-earmark-text"></i
+        ></span>
+        <h3>4. Review Report</h3>
+        <p>
+          Inspect scan summaries, evidence, risk scores, and correlated chains
+          through the reporting interface.
+        </p>
+      </article>
+    </div>
   </div>
 </section>
 {% endblock %}
