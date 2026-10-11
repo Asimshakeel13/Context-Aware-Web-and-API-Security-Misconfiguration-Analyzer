@@ -1,0 +1,32 @@
+# Secrets / config
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ML model cache
+.cache/
+models/
+
+# Reports generated at runtime
+reports_output/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
