@@ -1,0 +1,19 @@
+# CAWASMA NLP / classification stack (Phase 8+).
+#
+# Kept separate from requirements.txt because torch pulls in multi-gigabyte
+# NVIDIA CUDA wheels by default. We force the CPU-only build instead: it is a
+# fraction of the size and this scanner does not need a GPU.
+#
+# The two index lines below make pip fetch torch from PyTorch's CPU repo and
+# everything else from PyPI. Install AFTER the core requirements:
+#
+#     pip install -r requirements.txt
+#     pip install -r requirements-ml.txt
+#     python -m spacy download en_core_web_sm
+#
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
+torch==2.5.1
+sentence-transformers==3.3.1
+spacy==3.8.2
