@@ -25,11 +25,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install the lightweight core dependencies. The heavy NLP stack
-# (requirements-ml.txt, CPU-only torch) is added in Phase 8:
-#   RUN pip install -r requirements-ml.txt && python -m spacy download en_core_web_sm
+# Install the lightweight core dependencies first.
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# NLP stack (CPU-only torch, sentence-transformers, spaCy). The models are
+# downloaded at build time so scans never wait on (or fail at) a model download.
+COPY requirements-ml.txt .
+RUN pip install -r requirements-ml.txt \
+    && python -m spacy download en_core_web_sm \
+    && python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 COPY . .
 

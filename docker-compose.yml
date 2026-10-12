@@ -1,19 +1,19 @@
 # Development stack: FastAPI + PostgreSQL + Redis + Celery worker.
-# Bring up with:  docker compose up --build
+# Bring up with: docker compose up --build
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: cawasma
-      POSTGRES_PASSWORD: cawasma
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adnim123
       POSTGRES_DB: cawasma
     ports:
-      - "5432:5432"
+      - "5446:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cawasma"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d cawasma"]
       interval: 5s
       timeout: 3s
       retries: 5
