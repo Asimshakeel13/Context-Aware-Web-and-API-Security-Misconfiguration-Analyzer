@@ -1,0 +1,99 @@
+CAWASMA - Docker commands
+=========================
+Run all commands from the project root (the folder with docker-compose.yml).
+Services: api, worker, db, redis, frontend
+
+
+START / STOP
+------------
+docker compose up --build          Build images and start everything (logs in terminal)
+docker compose up -d --build       Same, but in the background (detached)
+docker compose up -d               Start without rebuilding (no code/Dockerfile changes)
+docker compose stop                Stop containers (keeps them and all data)
+docker compose start               Start stopped containers again
+docker compose down                Stop and remove containers (database data is KEPT)
+docker compose restart api         Restart one service (api, worker, db, redis, frontend)
+
+
+STATUS / LOGS
+-------------
+docker compose ps                  List containers and their status/health
+docker compose logs -f             Follow logs of all services (Ctrl+C to exit)
+docker compose logs -f api         Follow logs of one service
+docker compose logs --tail 100 worker   Last 100 log lines of the worker
+docker stats                       Live CPU / RAM usage per container
+
+
+REBUILD
+-------
+docker compose build                     Rebuild images (after Dockerfile/requirements changes)
+docker compose build --no-cache          Full rebuild from scratch (slow; use if a build is broken)
+docker compose up -d --build api worker  Rebuild and restart only the backend
+
+
+RUN COMMANDS INSIDE CONTAINERS
+------------------------------
+docker compose exec api sh                        Open a shell in the api container
+docker compose exec api alembic upgrade head      Apply database migrations
+docker compose exec api python -m pytest -q       Run the test suite
+docker compose exec db psql -U admin -d cawasma   Open the Postgres console (\q to quit)
+docker compose exec redis redis-cli               Open the Redis console
+
+
+DATABASE (PostgreSQL)
+---------------------
+Tables: scans, endpoints, findings, attack_chains, headers, cookies, tls_info,
+        ai_insights, feedback, alembic_version
+
+Open the console:
+docker compose exec db psql -U admin -d cawasma
+
+Inside psql:
+\dt                                List all tables
+\d scans                           Show columns of a table
+SELECT * FROM scans ORDER BY created_at DESC LIMIT 5;   Latest scans (end with ;)
+SELECT count(*) FROM findings;     Count rows
+\x                                 Toggle expanded display (easier to read wide rows)
+\q                                 Quit
+
+Run a single query without opening the console:
+docker compose exec db psql -U admin -d cawasma -c "SELECT count(*) FROM scans;"
+
+Migrations (Alembic, run in the api container):
+docker compose exec api alembic current            Show the current migration
+docker compose exec api alembic history            List all migrations
+docker compose exec api alembic upgrade head       Apply all pending migrations
+docker compose exec api alembic downgrade -1       Undo the last migration
+docker compose exec api alembic revision --autogenerate -m "describe change"
+                                                   Create a new migration after changing models
+
+Backup / restore:
+docker compose exec -T db pg_dump -U admin cawasma > backup.sql         Back up to backup.sql
+docker compose exec -T db psql -U admin -d cawasma < backup.sql         Restore from backup.sql
+
+Clear all scan data but keep the tables (careful):
+docker compose exec db psql -U admin -d cawasma -c "TRUNCATE scans CASCADE;"
+
+Recreate the database from scratch (ALL DATA LOST):
+docker compose down -v
+docker compose up -d --build       (the api re-runs migrations on startup)
+
+Connect from a GUI tool (DBeaver, pgAdmin, TablePlus):
+host: localhost   port: 5446   database: cawasma   user: admin   password: (see docker-compose.yml)
+
+
+URLS
+----
+Frontend:       http://localhost:5173
+API:            http://localhost:8000
+API docs:       http://localhost:8000/docs
+Postgres (host): localhost:5446   user: admin   db: cawasma
+Redis (host):    localhost:6379
+
+
+RESET / CLEANUP  (careful)
+-------------------------
+docker compose down -v             Remove containers AND the database volume (ALL DATA LOST)
+docker image prune -f              Delete unused (dangling) images to free disk space
+docker system df                   Show how much disk Docker is using
+docker system prune                Delete stopped containers, unused networks and dangling images
