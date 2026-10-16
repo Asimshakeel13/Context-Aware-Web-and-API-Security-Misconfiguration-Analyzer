@@ -453,6 +453,6 @@ Add links to the actual diagram files when their repository paths are confirmed.
 
 **CAWASMA** · Context-aware security analysis for better-informed triage.
 
-Built as a Final Year Project at **FAST-NUCES Islamabad, Pakistan**.
+Built as a Final Year Project at **FAST-NUCES, Pakistan**.
 
 </div>
