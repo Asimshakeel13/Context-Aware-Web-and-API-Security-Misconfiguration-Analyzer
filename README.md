@@ -6,7 +6,7 @@
 
 **Find the misconfigurations. Understand the context. Prioritize the risk.**
 
-A defensive, black-box security analyzer for HTTPS web applications and REST APIs, built as a BS Computer Science Final Year Project at FAST-NUCES Islamabad.
+A defensive, black-box security analyzer for HTTPS web applications and REST APIs, built as a BS Computer Science Final Year Project at FAST-NUCES.
 
 <br/>
 
