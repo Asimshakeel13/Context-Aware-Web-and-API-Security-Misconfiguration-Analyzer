@@ -6,23 +6,23 @@
 ## Requirements
 
 - **Docker path:** Docker Desktop (with WSL2 integration on Windows).
-- **Manual path:** Python 3.11+, Node.js 18+, and optionally PostgreSQL + Redis.
+- **Manual path:** Python 3.12, Node.js 18+, and optionally PostgreSQL + Redis.
 
 ## Option A — Docker (recommended, one command)
 
 ```bash
 cd cawasma
-cp .env.example .env
-docker compose up --build        # db + redis + api + worker + frontend
+make up                          # postgres + redis + api + worker (creates .env if missing)
+docker compose --profile frontend up -d --build   # optional: the frontend too
 ```
 
 | Service | URL |
 |---------|-----|
 | Frontend (UI) | http://localhost:5173 |
 | API docs (Swagger) | http://localhost:8000/docs |
-| Health | http://localhost:8000/api/health |
+| Health | http://localhost:8000/health (also `/api/health`) |
 
-Stop: `Ctrl+C`, then `docker compose down` (add `-v` to wipe the database).
+Stop: `make down`. `make reset` wipes the database, then migrates and seeds a demo scan.
 
 ## Option B — Manual, no infrastructure (SQLite + inline)
 
@@ -32,7 +32,8 @@ The lightest way to run everything on a laptop — no PostgreSQL, Redis or Celer
 ```bash
 cd cawasma
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt aiosqlite
+pip install -e "backend[dev]"
+cd backend
 export DATABASE_URL="sqlite+aiosqlite:///./cawasma.db"
 export ALEMBIC_SQLALCHEMY_URL="sqlite:///./cawasma.db"
 export RUN_SCANS_INLINE=true
@@ -52,15 +53,16 @@ npm run dev                              # http://localhost:5173
 
 ```bash
 cp .env.example .env            # point DATABASE_URL / REDIS_URL at your services
+cd backend
 alembic upgrade head
 uvicorn app.main:app --reload                                   # terminal 1
-celery -A celery_worker.celery_app.celery_app worker --loglevel=info   # terminal 2
-cd frontend && npm install && npm run dev                        # terminal 3
+celery -A app.workers.celery_app.celery_app worker --loglevel=info   # terminal 2
+cd ../frontend && npm install && npm run dev                     # terminal 3
 ```
 
 ## Configuration (`.env`)
 
-Key settings (full list in `app/config.py`, sample in `.env.example`):
+Key settings (full list in `backend/app/config.py`, sample in `.env.example`):
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -84,12 +86,14 @@ works.
 ## Running the tests
 
 ```bash
-source .venv/bin/activate
-pip install pytest pytest-asyncio aiosqlite greenlet
-python -m pytest -q          # expected: 88 passed
+make test        # SQLite; expected: 93 passed
+make lint        # ruff + mypy
+TEST_DATABASE_URL=postgresql+asyncpg://cawasma:cawasma@localhost:5446/cawasma_test make test   # against Postgres, as CI does
 ```
 
 ## Database migrations (Alembic)
+
+Run from `backend/` (or `make migrate` to apply inside the api container).
 
 ```bash
 alembic upgrade head                                   # apply

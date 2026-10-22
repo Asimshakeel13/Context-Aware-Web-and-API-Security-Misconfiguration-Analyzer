@@ -7,7 +7,7 @@ context-aware prioritization.
 
 ## Contribution 1 — NLP Endpoint Sensitivity Classification
 
-**File:** `app/scanner/sensitivity.py` (+ optional `app/services/llm.py`)
+**File:** `backend/app/core/sensitivity.py` (+ optional `backend/app/services/llm.py`)
 
 Classifies each discovered endpoint as **CRITICAL / HIGH / MEDIUM / LOW** from its
 URL path, and — crucially — explains *why*. The pipeline is:
@@ -46,7 +46,7 @@ Tier calibration matches the project's worked examples, e.g.
 
 ## Contribution 2 — Attack-Chain Correlation
 
-**File:** `app/scanner/chains.py`
+**File:** `backend/app/core/chains.py`
 
 Individual low/medium findings can combine into a single high-impact path. CAWASMA
 defines **five chain templates** and reports a chain **only when its required
@@ -61,7 +61,7 @@ conditions.
 
 ## Contribution 3 — Response-Body Sensitivity Classification
 
-**File:** `app/scanner/body_classifier.py`
+**File:** `backend/app/core/body_classifier.py`
 
 Scans each response body for four safe sensitivity signals and converts them into
 the response bonus used by the scoring model:

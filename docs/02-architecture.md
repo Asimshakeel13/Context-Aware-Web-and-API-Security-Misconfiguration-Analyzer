@@ -62,12 +62,12 @@ for simple deployments and demos.
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| API | `app/api/` | Routes + Pydantic schemas; never returns raw ORM objects |
-| Services | `app/services/` | Orchestration: scan creation, pipeline driver, persistence, reports, insights, LLM |
-| Scanner | `app/scanner/` | Pure, DB-free logic: engine, crawler, classifiers, 58 rules, CVSS, chains, TLS |
-| Database | `app/database/` | SQLAlchemy models, async session, base |
-| Worker | `celery_worker/` | Celery app + `run_scan` task |
-| Utils | `app/utils/` | Validation, SSRF/security, redaction, logging |
+| API | `backend/app/api/` | Routes + Pydantic schemas; never returns raw ORM objects |
+| Services | `backend/app/services/` | Orchestration: scan creation, pipeline driver, persistence, reports, insights, LLM |
+| Scanner | `backend/app/core/` | Pure, DB-free logic: engine, crawler, classifiers, 58 rules, CVSS, chains, TLS |
+| Database | `backend/app/db/` | SQLAlchemy models, async session, base |
+| Worker | `backend/app/workers/` | Celery app + `run_scan` task |
+| Utils | `backend/app/utils/` | Validation, SSRF/security, redaction, logging |
 
 The **scanner is deliberately database-free** — every rule is a pure function
 `detect(ctx) -> RawFinding | None`. This makes the 58 checks and the three
