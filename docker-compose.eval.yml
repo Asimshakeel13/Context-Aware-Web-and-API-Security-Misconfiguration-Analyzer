@@ -1,0 +1,27 @@
+# CAWASMA evaluation targets (owner: Asim) -- placeholder.
+#
+# Deliberately misconfigured apps used to measure detection and scoring
+# accuracy. They run as their own compose project on an isolated network so
+# they are never exposed alongside the dev stack:
+#
+#   docker compose -f docker-compose.eval.yml up -d
+#
+# Notes for adding targets:
+# * Do not publish ports on 0.0.0.0; bind to 127.0.0.1 if host access is needed.
+# * The scanner is HTTPS-only and its SSRF guard blocks private/loopback IPs, so
+#   targets need TLS and scans must go through the test-only allow_private path
+#   (see app/core/pipeline.py) -- never relax the guard globally.
+# * To let the worker reach targets, attach it to this network from an override
+#   file, e.g. `networks: [backend, eval]` with `eval: {external: true, name: cawasma-eval}`.
+
+name: cawasma-eval
+
+services: {}
+  # example-target:
+  #   image: <vulnerable-app-image>
+  #   networks: [eval]
+
+networks:
+  eval:
+    name: cawasma-eval
+    internal: true   # no outbound internet from evaluation targets
