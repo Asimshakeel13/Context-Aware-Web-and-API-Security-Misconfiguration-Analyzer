@@ -1,7 +1,7 @@
 CAWASMA - Docker commands
 =========================
 Run all commands from the project root (the folder with docker-compose.yml).
-Services: api, worker, db, redis, frontend
+Services: api, worker, postgres, redis (+ frontend via --profile frontend)
 
 
 START / STOP
@@ -12,7 +12,7 @@ docker compose up -d               Start without rebuilding (no code/Dockerfile 
 docker compose stop                Stop containers (keeps them and all data)
 docker compose start               Start stopped containers again
 docker compose down                Stop and remove containers (database data is KEPT)
-docker compose restart api         Restart one service (api, worker, db, redis, frontend)
+docker compose restart api         Restart one service (api, worker, postgres, redis)
 
 
 STATUS / LOGS
@@ -35,8 +35,8 @@ RUN COMMANDS INSIDE CONTAINERS
 ------------------------------
 docker compose exec api sh                        Open a shell in the api container
 docker compose exec api alembic upgrade head      Apply database migrations
-docker compose exec api python -m pytest -q       Run the test suite
-docker compose exec db psql -U admin -d cawasma   Open the Postgres console (\q to quit)
+make test                                         Run the test suite (host venv)
+docker compose exec postgres psql -U cawasma -d cawasma   Open the Postgres console (\q to quit)
 docker compose exec redis redis-cli               Open the Redis console
 
 
@@ -46,7 +46,7 @@ Tables: scans, endpoints, findings, attack_chains, headers, cookies, tls_info,
         ai_insights, feedback, alembic_version
 
 Open the console:
-docker compose exec db psql -U admin -d cawasma
+docker compose exec postgres psql -U cawasma -d cawasma
 
 Inside psql:
 \dt                                List all tables
@@ -57,7 +57,7 @@ SELECT count(*) FROM findings;     Count rows
 \q                                 Quit
 
 Run a single query without opening the console:
-docker compose exec db psql -U admin -d cawasma -c "SELECT count(*) FROM scans;"
+docker compose exec postgres psql -U cawasma -d cawasma -c "SELECT count(*) FROM scans;"
 
 Migrations (Alembic, run in the api container):
 docker compose exec api alembic current            Show the current migration
@@ -68,18 +68,18 @@ docker compose exec api alembic revision --autogenerate -m "describe change"
                                                    Create a new migration after changing models
 
 Backup / restore:
-docker compose exec -T db pg_dump -U admin cawasma > backup.sql         Back up to backup.sql
-docker compose exec -T db psql -U admin -d cawasma < backup.sql         Restore from backup.sql
+docker compose exec -T postgres pg_dump -U cawasma cawasma > backup.sql         Back up to backup.sql
+docker compose exec -T postgres psql -U cawasma -d cawasma < backup.sql         Restore from backup.sql
 
 Clear all scan data but keep the tables (careful):
-docker compose exec db psql -U admin -d cawasma -c "TRUNCATE scans CASCADE;"
+docker compose exec postgres psql -U cawasma -d cawasma -c "TRUNCATE scans CASCADE;"
 
 Recreate the database from scratch (ALL DATA LOST):
 docker compose down -v
 docker compose up -d --build       (the api re-runs migrations on startup)
 
 Connect from a GUI tool (DBeaver, pgAdmin, TablePlus):
-host: localhost   port: 5446   database: cawasma   user: admin   password: (see docker-compose.yml)
+host: localhost   port: 5446   database: cawasma   user: cawasma   password: (POSTGRES_PASSWORD in .env)
 
 
 URLS
@@ -87,7 +87,7 @@ URLS
 Frontend:       http://localhost:5173
 API:            http://localhost:8000
 API docs:       http://localhost:8000/docs
-Postgres (host): localhost:5446   user: admin   db: cawasma
+Postgres (host): localhost:5446   user: cawasma   db: cawasma
 Redis (host):    localhost:6379
 
 

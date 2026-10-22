@@ -2,7 +2,7 @@
 
 PostgreSQL via SQLAlchemy (async) ORM, with Alembic migrations. The schema is a
 clean relational graph with foreign keys, indexes, timestamps and cascade rules.
-(Models live in `app/database/models/`.)
+(Models live in `backend/app/db/models/`.)
 
 ## Tables
 

@@ -16,12 +16,15 @@ env/
 
 # Testing / coverage
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+_test.db
 .coverage
 htmlcov/
 
-# ML model cache
-.cache/
-models/
+# ML model cache (root-level only; app/db/models/ is source code)
+/.cache/
+/models/
 
 # Reports generated at runtime
 reports_output/
