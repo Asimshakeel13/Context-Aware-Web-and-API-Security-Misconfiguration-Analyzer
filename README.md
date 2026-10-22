@@ -319,38 +319,33 @@ The supplied summary lists Python 3.11 and Ubuntu 22.04 as the target environmen
 
 ## 📁 Project structure
 
-The following layout is taken from the new project summary. Update it to match the repository as implementation evolves.
-
 ```text
 cawasma/
-├── frontend/
-│   ├── app/
-│   │   ├── page.tsx
-│   │   └── scan/
-│   │       ├── new/page.tsx
-│   │       └── [id]/page.tsx
-│   ├── components/
-│   └── package.json
 ├── backend/
-│   ├── main.py
-│   ├── models.py
-│   ├── database.py
-│   ├── routes/
-│   └── tasks.py
-├── scanner/
-│   ├── engine.py
-│   ├── crawler.py
-│   ├── checks.py
-│   ├── sensitivity.py
-│   ├── chains.py
-│   ├── body_classifier.py
-│   ├── cvss.py
-│   └── reports.py
-├── config.py
-├── requirements.txt
-├── .env.example
-└── .gitignore
+│   ├── app/
+│   │   ├── main.py        # FastAPI app factory, CORS, error envelope
+│   │   ├── config.py      # typed settings (single source of config)
+│   │   ├── core/          # DB-free scanner: engine, crawler, checks/, cvss, reports,
+│   │   │                  # sensitivity + body classifiers, chains, tls, pipeline
+│   │   ├── api/           # REST + WebSocket routes, Pydantic schemas
+│   │   ├── db/            # SQLAlchemy models, session, demo seed
+│   │   ├── workers/       # Celery app + scan task
+│   │   ├── ml/            # ML classifier interfaces + stubs
+│   │   ├── services/      # orchestration + persistence
+│   │   └── utils/         # validation, SSRF guard, redaction, logging
+│   ├── migrations/        # Alembic
+│   ├── tests/             # unit / integration / api
+│   ├── pyproject.toml     # dependencies + ruff / mypy / pytest config
+│   └── Dockerfile
+├── frontend/
+├── docs/
+├── docker-compose.yml     # api, worker, postgres, redis (+ frontend profile)
+├── docker-compose.eval.yml
+├── Makefile               # up, down, test, lint, migrate, seed, reset
+└── .env.example
 ```
+
+Run the backend with `make up`, then open http://localhost:8000/health (`make help` lists all targets).
 
 ## 🗄️ Database design
 

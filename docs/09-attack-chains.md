@@ -59,5 +59,5 @@ mixed).
 | C004 | Unauthenticated Data Exposure → BOLA → Full Data Breach | 9.1 | CRITICAL |
 | C005 | .env Exposure → Version Leak → Full Compromise | 9.8 | CRITICAL |
 
-Definitions live in `app/scanner/chains.py`; correlation runs after all findings
+Definitions live in `backend/app/core/chains.py`; correlation runs after all findings
 are scored, via `correlate_chains(present_rule_ids)`.

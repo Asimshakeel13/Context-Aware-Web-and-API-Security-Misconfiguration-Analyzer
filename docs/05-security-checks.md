@@ -2,7 +2,7 @@
 
 CAWASMA implements **58 checks** across **7 categories**. Each check carries
 predefined metadata — these CVSS v3.1 vectors and base scores are fixed in the
-code (`app/scanner/rules/catalog.py`) and are **never invented at runtime**.
+code (`backend/app/core/checks/catalog.py`) and are **never invented at runtime**.
 
 Every check in code also stores: `rule_id`, `name`, `category`, `description`,
 `cvss_vector`, `base_score`, detection logic, `evidence` (redacted), `impact`,

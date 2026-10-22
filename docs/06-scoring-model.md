@@ -32,7 +32,7 @@ Final score = min( 10.0 , (CVSS base × Context multiplier) + Response bonus )
 | Financial data | + 1.5 |
 | Internal / infra IP | + 2.0 |
 
-(Values live in `app/scanner/cvss.py` as `CONTEXT_MULTIPLIERS` and
+(Values live in `backend/app/core/cvss.py` as `CONTEXT_MULTIPLIERS` and
 `RESPONSE_BONUS`.)
 
 ## Severity buckets
