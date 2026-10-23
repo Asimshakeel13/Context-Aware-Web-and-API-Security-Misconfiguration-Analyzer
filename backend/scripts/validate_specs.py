@@ -1,0 +1,85 @@
+"""Validate the spec files in config/ (owner of the files: Asim).
+
+    python scripts/validate_specs.py checks   # config/checks.yaml (make validate-checks)
+    python scripts/validate_specs.py all      # + cvss_mapping.yaml, chains.yaml and a
+                                              #   catalog.py score report (make validate-config)
+
+Exit status 0 when every file is valid, 1 otherwise. Problems are printed one
+per line as ``path: location: message``. Paths default to ``settings.CONFIG_DIR``;
+override with ``--config-dir``.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from app.config import settings
+from app.core.checks.catalog import CATALOG
+from app.core.cvss31 import CvssVectorError, base_score
+from app.core.specs import SpecError, load_chains, load_checks, load_cvss_mapping
+
+
+def catalog_score_mismatches() -> list[str]:
+    """Catalog rules whose recorded base score disagrees with their own vector."""
+    out = []
+    for meta in CATALOG.values():
+        try:
+            computed = base_score(meta.cvss_vector)
+        except CvssVectorError as exc:
+            out.append(f"{meta.rule_id}: invalid vector {meta.cvss_vector!r}: {exc}")
+            continue
+        if computed != meta.base_score:
+            out.append(f"{meta.rule_id}: base_score {meta.base_score} but "
+                       f"{meta.cvss_vector} scores {computed}")
+    return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("target", choices=["checks", "all"], nargs="?", default="checks")
+    parser.add_argument("--config-dir", type=Path, default=Path(settings.CONFIG_DIR))
+    args = parser.parse_args(argv)
+    cfg: Path = args.config_dir
+
+    ok = True
+    known_ids = set(CATALOG)
+    try:
+        checks = load_checks(cfg / "checks.yaml")
+        known_ids |= {c.check_id for c in checks.checks}
+        summary = ", ".join(f"{c.check_id} ({c.base_score})" for c in checks.checks)
+        print(f"OK   {cfg / 'checks.yaml'}: {len(checks.checks)} checks: {summary}")
+    except SpecError as exc:
+        ok = False
+        _report(exc)
+
+    if args.target == "all":
+        try:
+            load_cvss_mapping(cfg / "cvss_mapping.yaml")
+            print(f"OK   {cfg / 'cvss_mapping.yaml'}")
+        except SpecError as exc:
+            ok = False
+            _report(exc)
+        try:
+            chains = load_chains(cfg / "chains.yaml", known_ids)
+            print(f"OK   {cfg / 'chains.yaml'}: {len(chains.chains)} chains")
+        except SpecError as exc:
+            ok = False
+            _report(exc)
+        mismatches = catalog_score_mismatches()
+        if mismatches:
+            print(f"WARN backend/app/core/checks/catalog.py: {len(mismatches)} rules' "
+                  "base_score disagrees with their CVSS vector:")
+            for line in mismatches:
+                print(f"     {line}")
+    return 0 if ok else 1
+
+
+def _report(exc: SpecError) -> None:
+    print(f"FAIL {exc.path}")
+    for problem in exc.problems:
+        print(f"     {problem}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

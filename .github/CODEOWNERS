@@ -13,4 +13,7 @@
 /backend/app/core/checks/catalog.py     @Asimshakeel13
 /docs/05-security-checks.md             @Asimshakeel13
 /eval/                                  @Asimshakeel13
+/config/checks.yaml                     @Asimshakeel13
+/config/cvss_mapping.yaml               @Asimshakeel13
+/config/chains.yaml                     @Asimshakeel13
 /docker-compose.eval.yml                @Asimshakeel13

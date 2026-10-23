@@ -45,6 +45,8 @@ jobs:
         run: ruff check . --output-format=github
       - name: mypy
         run: mypy
+      - name: Spec files (config/*.yaml)
+        run: python scripts/validate_specs.py all
 
   backend-test:
     name: Backend tests (PostgreSQL)

@@ -1,0 +1,47 @@
+# CAWASMA check specifications (owner: Asim). Format: docs/check-spec-format.md
+# Validate with: make validate-checks
+spec_version: 1
+
+checks:
+  - check_id: HDR-001
+    category: HEADERS
+    title: Missing HSTS (Strict-Transport-Security)
+    description: >-
+      The HTTPS response does not send a Strict-Transport-Security header, so a
+      browser can be downgraded to plain HTTP and the session intercepted (MITM).
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Strict-Transport-Security
+          op: missing
+    owasp: [API8:2023, A05:2021]
+    cwe: [CWE-319]
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N   # 5.9
+    recommendation: "Send 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
+    references:
+      - https://owasp.org/www-project-secure-headers/
+
+  - check_id: HDR-004
+    category: HEADERS
+    title: Missing X-Content-Type-Options
+    description: >-
+      The response does not send 'X-Content-Type-Options: nosniff' (or sends
+      another value), so browsers may MIME-sniff the content and execute it.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any            # fires if the header is absent OR not "nosniff"
+      rules:
+        - header: X-Content-Type-Options
+          op: missing
+        - header: X-Content-Type-Options
+          op: not_equals
+          value: nosniff
+    owasp: [API8:2023, A05:2021]
+    cwe: [CWE-693]
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N   # 4.3
+    recommendation: "Set 'X-Content-Type-Options: nosniff'."
+    references:
+      - https://owasp.org/www-project-secure-headers/

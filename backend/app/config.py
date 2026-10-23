@@ -8,6 +8,7 @@ in one place, typed and validated at startup.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import field_validator
@@ -61,6 +62,10 @@ class Settings(BaseSettings):
     AUTO_DISPATCH_SCANS: bool = True
     # Run scans in-process (no Celery/Redis needed). For simple deploys / demos.
     RUN_SCANS_INLINE: bool = False
+
+    # Spec files (checks.yaml, cvss_mapping.yaml, chains.yaml). Defaults to the
+    # repo's config/ dir; in Docker that resolves to /config (mounted).
+    CONFIG_DIR: str = str(Path(__file__).resolve().parents[2] / "config")
 
     # --- Optional LLM (never required for core scanning) -------------------
     # Used by the NLP classifier to expand URL abbreviations (usr -> user).
