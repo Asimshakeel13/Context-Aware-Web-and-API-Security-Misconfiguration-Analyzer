@@ -8,7 +8,7 @@ BACKEND := backend
 
 .DEFAULT_GOAL := help
 .PHONY: help up down test lint typecheck migrate seed reset logs install env \
-	validate-checks validate-config
+	validate-checks validate-config openapi
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -40,6 +40,9 @@ validate-checks: ## Validate config/checks.yaml (specs + CVSS vectors)
 
 validate-config: ## Validate checks, cvss_mapping and chains YAML; report catalog score drift
 	cd $(BACKEND) && "$(PYTHON)" scripts/validate_specs.py all
+
+openapi: ## Regenerate docs/openapi.json from the code (commit the result)
+	cd $(BACKEND) && "$(PYTHON)" scripts/export_openapi.py
 
 typecheck: ## mypy only
 	cd $(BACKEND) && "$(PYTHON)" -m mypy

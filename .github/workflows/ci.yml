@@ -47,6 +47,8 @@ jobs:
         run: mypy
       - name: Spec files (config/*.yaml)
         run: python scripts/validate_specs.py all
+      - name: docs/openapi.json is current
+        run: python scripts/export_openapi.py --check
 
   backend-test:
     name: Backend tests (PostgreSQL)
