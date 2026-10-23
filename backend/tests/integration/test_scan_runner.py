@@ -1,4 +1,4 @@
-"""Scan runner drives QUEUED -> RUNNING -> COMPLETED and persists results."""
+"""Scan runner drives QUEUED -> RUNNING -> DONE and persists results."""
 from __future__ import annotations
 
 import contextlib
@@ -52,7 +52,7 @@ async def test_scan_runner_completes(engine, monkeypatch):
 
     async with async_session() as s:
         scan = await s.get(Scan, sid)
-        assert scan.status == ScanStatus.COMPLETED
+        assert scan.status == ScanStatus.DONE
         assert scan.progress == 100
         assert scan.duration_seconds is not None
         from sqlalchemy import func, select

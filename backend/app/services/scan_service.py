@@ -8,6 +8,8 @@ and returns immediately (spec section 23), which is the real, honest state.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,10 +30,33 @@ from app.utils.validators import validate_target_url
 logger = get_logger(__name__)
 
 
-async def create_scan(session: AsyncSession, target_url: str) -> Scan:
+def scan_options() -> dict[str, Any]:
+    """Snapshot of the limits a new scan runs with (stored on ``scans.options``)."""
+    return {
+        "max_endpoints": settings.MAX_ENDPOINTS,
+        "max_crawl_depth": settings.MAX_CRAWL_DEPTH,
+        "max_redirects": settings.MAX_REDIRECTS,
+        "max_concurrent_requests": settings.MAX_CONCURRENT_REQUESTS,
+        "request_timeout": settings.REQUEST_TIMEOUT,
+        "max_response_size": settings.MAX_RESPONSE_SIZE,
+        "rate_limit_probe_count": settings.RATE_LIMIT_PROBE_COUNT,
+        "llm_enabled": settings.LLM_ENABLED,
+    }
+
+
+async def create_scan(
+    session: AsyncSession, target_url: str, *, authorization_confirmed: bool = False
+) -> Scan:
     """Validate the target and create a QUEUED scan record."""
     parsed = validate_target_url(target_url)  # raises InvalidTargetError
-    scan = Scan(target_url=parsed.url, status=ScanStatus.QUEUED, progress=0)
+    scan = Scan(
+        target_url=parsed.url,
+        status=ScanStatus.QUEUED,
+        progress=0,
+        options=scan_options(),
+        authorization_confirmed=authorization_confirmed,
+        authorization_confirmed_at=datetime.now(UTC) if authorization_confirmed else None,
+    )
     session.add(scan)
     await session.commit()
     await session.refresh(scan)
@@ -105,9 +130,9 @@ async def build_summary(session: AsyncSession, scan_id: uuid.UUID) -> ScanSummar
 
     rows = (
         await session.execute(
-            select(Finding.severity, func.count())
+            select(Finding.severity_bucket, func.count())
             .where(Finding.scan_id == scan_id)
-            .group_by(Finding.severity)
+            .group_by(Finding.severity_bucket)
         )
     ).all()
     by_sev: dict[Severity, int] = {sev: n for sev, n in rows}
@@ -132,7 +157,7 @@ async def list_findings(
         await session.scalars(
             select(Finding)
             .where(Finding.scan_id == scan_id)
-            .order_by(Finding.cawasma_final_score.desc().nullslast())
+            .order_by(Finding.final_score.desc())
             .offset(offset)
             .limit(limit)
         )

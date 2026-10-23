@@ -28,7 +28,7 @@ async def _seed(engine):
     with mock_server() as base:
         result = await run_pipeline(base, probe=False, allow_private=True)
     async with async_session() as session:
-        scan = Scan(target_url=result.target, status=ScanStatus.COMPLETED, progress=100)
+        scan = Scan(target_url=result.target, status=ScanStatus.DONE, progress=100)
         session.add(scan)
         await session.commit()
         await session.refresh(scan)

@@ -5,6 +5,9 @@ testable. All writes happen inside the caller's transaction/session.
 """
 from __future__ import annotations
 
+from typing import Any
+
+from app.core.body_classifier import BodyClassification
 from app.core.pipeline import ScanResult
 from app.db.models import (
     AiInsight,
@@ -32,6 +35,20 @@ _SECURITY_HEADERS = {
 }
 
 
+def body_signals_json(body: BodyClassification | None) -> dict[str, Any]:
+    """Endpoint ``body_signals`` JSON (evidence is already redacted)."""
+    if body is None:
+        return {}
+    return {
+        "credentials": body.credentials,
+        "pii": body.pii,
+        "financial": body.financial,
+        "internal_ip": body.internal_ip,
+        "bonus": body.bonus,
+        "reasons": list(body.reasons),
+    }
+
+
 async def persist_result(session, scan: Scan, result: ScanResult) -> None:
     """Write endpoints, findings, TLS, chains and an insight for ``scan``."""
     endpoint_rows: list[Endpoint] = []
@@ -47,6 +64,7 @@ async def persist_result(session, scan: Scan, result: ScanResult) -> None:
             context_class=ep.context_class,
             context_confidence=ep.context_confidence,
             context_reason=ep.context_reason,
+            body_signals=body_signals_json(ep.body_class),
             response_time=ep.response_time,
             discovered_by=ep.discovered_by,
         )
@@ -74,19 +92,19 @@ async def persist_result(session, scan: Scan, result: ScanResult) -> None:
         frow = Finding(
             scan_id=scan.id,
             endpoint=ep_row,
-            rule_id=raw.rule_id,
+            check_id=raw.rule_id,
             title=raw.title,
             category=raw.category,
             description=raw.evidence,
             context_class=sf.context_class,
             context_confidence=sf.context_confidence,
             cvss_vector=raw.cvss_vector,
-            cvss_base_score=sf.cvss_base_score,
+            base_score=sf.cvss_base_score,
             cawasma_context_multiplier=sf.context_multiplier,
             response_bonus=sf.response_bonus,
-            cawasma_final_score=sf.cawasma_final_score,
-            severity=sf.severity,
-            evidence=raw.evidence,
+            final_score=sf.cawasma_final_score,
+            severity_bucket=sf.severity,
+            evidence={"text": raw.evidence} if raw.evidence else {},
             impact=raw.impact,
             recommendation=raw.recommendation,
             references=raw.references,

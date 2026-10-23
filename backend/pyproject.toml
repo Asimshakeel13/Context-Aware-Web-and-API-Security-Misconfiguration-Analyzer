@@ -15,8 +15,7 @@ dependencies = [
     "SQLAlchemy==2.0.36",
     "asyncpg==0.30.0",
     "greenlet==3.1.1",          # required by SQLAlchemy async
-    "psycopg2-binary==2.9.10",  # sync driver for Alembic
-    "alembic==1.14.0",
+    "alembic==1.14.0",          # runs on asyncpg too (migrations/env.py)
     # Async tasks + pub/sub
     "celery==5.4.0",
     "redis==5.2.1",
@@ -45,7 +44,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "scripts*"]
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
@@ -79,7 +78,7 @@ known-first-party = ["app"]
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
 python_version = "3.12"
-packages = ["app"]
+packages = ["app", "scripts"]
 plugins = ["pydantic.mypy"]
 warn_unused_ignores = true
 warn_redundant_casts = true

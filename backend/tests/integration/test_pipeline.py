@@ -73,8 +73,15 @@ async def test_pipeline_persists_full_graph(engine):
         f = (await session.execute(
             select(Finding).where(Finding.scan_id == scan.id).limit(1)
         )).scalar_one()
-        assert f.cvss_base_score is not None
-        assert f.cawasma_final_score is not None
-        assert f.cvss_vector and f.cvss_vector.startswith("CVSS:3.1/")
+        assert f.base_score > 0
+        assert f.final_score is not None
+        assert f.cvss_vector.startswith("CVSS:3.1/")
+        assert isinstance(f.evidence, dict)
+
+        # Body signals are persisted per endpoint.
+        ep_rows = (await session.execute(
+            select(Endpoint).where(Endpoint.scan_id == scan.id)
+        )).scalars().all()
+        assert any(e.body_signals.get("credentials") for e in ep_rows)
 
     await async_session().close()

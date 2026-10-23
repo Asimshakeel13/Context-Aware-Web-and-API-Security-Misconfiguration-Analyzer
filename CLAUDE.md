@@ -68,7 +68,8 @@ Owned files:
 - `backend/app/core/reports.py`: JSON/CSV/HTML/PDF renderers (DB-free); data assembly in `services/report_service.py`
 - FastAPI app: `backend/app/main.py`, `backend/app/api/`
 - Celery: `backend/app/workers/`
-- DB: `backend/app/db/` (models, session, seed), `backend/migrations/`
+- DB: `backend/app/db/` (models, session), `backend/migrations/`, `backend/scripts/` (seed, reset).
+  Schema reference: `docs/schema.md`; decisions: `docs/db-decisions.md`
 
 Notes:
 
@@ -92,12 +93,13 @@ backend/app/
   core/      DB-free scanner logic: engine, crawler, checks/, cvss, reports,
              sensitivity + body classifiers, chains, tls, pipeline
   api/       routes/ + schemas/ (Pydantic). Never return ORM objects.
-  db/        base, session, models/, seed.py
+  db/        base (JSONType), session (engine, SessionDep), models/
   workers/   celery_app.py, tasks.py (cawasma.run_scan)
   ml/        Protocols (interfaces.py) + stubs for Asim's classifiers
   services/  orchestration + persistence (scan_runner, result_service, ...)
   utils/     validators, security (SSRF), redaction, logging
-backend/migrations/   Alembic
+backend/migrations/   Alembic (async env; one initial migration 0001)
+backend/scripts/      seed.py (sample data), reset.py (drop + migrate)
 backend/tests/        unit/ integration/ api/ fixtures/
 config/               shared service config (e.g. postgres init scripts)
 docs/                 project documentation
@@ -120,7 +122,12 @@ frontend/             web UI (Neelam)
 - Redact secrets (`utils/redaction.py`) before anything is logged, stored or reported.
   Cookies store metadata, never values.
 - Schema changes go through Alembic (`alembic revision --autogenerate`); never
-  create tables by hand. Models must stay portable (SQLite tests, Postgres prod).
+  create tables by hand, never edit a migration that has been merged. Models must
+  stay portable (SQLite tests, Postgres prod): JSON columns use `JSONType` (JSONB
+  on Postgres), and cascades rely on DB `ON DELETE` rules (FKs are enforced on SQLite too).
+- The REST/report JSON keeps its pre-rename field names (`rule_id`,
+  `cvss_base_score`, `cawasma_final_score`, `severity`, status `COMPLETED`) for
+  the frontend; map in `api/schemas/` rather than renaming (docs/db-decisions.md D2-D3).
 - ML code plugs in through `app/ml/interfaces.py`; the engine must keep working
   with the built-in classifiers when ML deps are absent.
 - API errors use the envelope `{"success": false, "error": {"code", "message"}}`.
@@ -137,8 +144,8 @@ make down      # stop (keeps DB volume)
 make test      # pytest on the host (SQLite)
 make lint      # ruff + mypy
 make migrate   # alembic upgrade head in the api container
-make seed      # idempotent demo scan
-make reset     # wipe DB volume, up, migrate, seed
+make seed      # sample data: 1 target, 2 scans, 10 endpoints, 16 findings, 1 chain
+make reset     # drop everything in the DB, migrate, seed
 make install   # pip install -e "backend[dev]" into .venv
 ```
 
