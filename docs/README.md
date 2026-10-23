@@ -20,6 +20,15 @@ self-contained; start with the Overview and follow the order below.
 | 10 | [Limitations & OWASP Coverage](10-limitations-owasp.md) | Honest black-box limits, OWASP API mapping |
 | 11 | [Viva Guide](11-viva-guide.md) | Likely questions and concise answers |
 
+### Team contracts (Sprint 1)
+
+| Document | For | What it covers |
+|----------|-----|----------------|
+| [API contract v1](api-contract.md) + [openapi.json](openapi.json) | Neelam | Public endpoints, examples, errors, status values, mock mode |
+| [Check spec format](check-spec-format.md) | Asim | `config/checks.yaml` fields, CVSS vector rules, validator |
+| [CVSS mapping contract](cvss-mapping-contract.md) | Asim | `classify` / `analyze` interfaces, `cvss_mapping.yaml`, `chains.yaml` |
+| [Schema](schema.md) · [DB decisions](db-decisions.md) | everyone | Tables, ER diagram, design decisions |
+
 ### Related files (project root)
 
 - **[README.md](../README.md)** — quick project summary and build status
