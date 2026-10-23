@@ -28,7 +28,9 @@ async def create_scan(
 ) -> ScanCreated:
     """Create a scan job. Returns immediately with a queued scan id."""
     try:
-        scan = await scan_service.create_scan(session, body.target_url)
+        scan = await scan_service.create_scan(
+            session, body.target_url, authorization_confirmed=body.authorization_confirmed
+        )
     except InvalidTargetError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=exc.reason

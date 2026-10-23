@@ -1,7 +1,7 @@
 """TlsInfo model -- TLS/certificate facts gathered for a scan's host.
 
 TLS is a host-level property, so it links to the scan rather than a single
-endpoint. Protocol/cipher probing is implemented in scanner/tls.py.
+endpoint. Protocol/cipher probing is implemented in core/tls.py.
 """
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, JSONType, TimestampMixin
 
 if TYPE_CHECKING:
     from app.db.models.scan import Scan
@@ -30,7 +30,7 @@ class TlsInfo(Base, TimestampMixin):
     host: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Protocols that the server was observed to *offer*, e.g. ["TLSv1.2","TLSv1.3"].
-    protocols_offered: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    protocols_offered: Mapped[list[str] | None] = mapped_column(JSONType, nullable=True)
     negotiated_protocol: Mapped[str | None] = mapped_column(String(32), nullable=True)
     negotiated_cipher: Mapped[str | None] = mapped_column(String(128), nullable=True)
 

@@ -1,16 +1,19 @@
 """Finding model -- one security finding produced by a check.
 
-Scoring fields are deliberately split so the official CVSS v3.1 value and
-CAWASMA's custom context-adjusted value are never confused (spec sections 12 &
-30). This distinction is a core honesty requirement of the project.
+Scoring fields are deliberately split so the official CVSS v3.1 value
+(``base_score``) and CAWASMA's context-adjusted value (``final_score``) are
+never confused (spec sections 12 & 30). This distinction is a core honesty
+requirement of the project.
+
+``evidence`` is redacted JSON: ``{"text": str, ...}`` where ``text`` is the
+human-readable summary and any other keys are check-specific detail.
 """
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
-    JSON,
     Enum,
     Float,
     ForeignKey,
@@ -21,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, JSONType, TimestampMixin
 from app.db.models.enums import ContextClass, FindingCategory, Severity
 
 if TYPE_CHECKING:
@@ -46,12 +49,16 @@ class Finding(Base, TimestampMixin):
     )
 
     # --- Identity ----------------------------------------------------------
-    rule_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    # Catalog rule id, e.g. "HDR-003" (backend/app/core/checks/catalog.py).
+    check_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[FindingCategory] = mapped_column(
         Enum(FindingCategory, name="finding_category"), nullable=False
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Standards mappings, e.g. ["API8:2023"] and ["CWE-1021"].
+    owasp_map: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    cwe_map: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
 
     # --- Context (from endpoint classification) ----------------------------
     context_class: Mapped[ContextClass | None] = mapped_column(
@@ -60,17 +67,18 @@ class Finding(Base, TimestampMixin):
     context_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # --- Official CVSS v3.1 (standard, unmodified) -------------------------
-    cvss_vector: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    cvss_base_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cvss_vector: Mapped[str] = mapped_column(String(128), nullable=False)
+    base_score: Mapped[float] = mapped_column(Float, nullable=False)
 
     # --- CAWASMA custom context-aware score (NOT official CVSS) -------------
     cawasma_context_multiplier: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )
     response_bonus: Mapped[float | None] = mapped_column(Float, nullable=True)
-    cawasma_final_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_score: Mapped[float] = mapped_column(Float, nullable=False)
 
-    severity: Mapped[Severity] = mapped_column(
+    # Bucket of ``final_score`` (may be forced to CRITICAL on credential exposure).
+    severity_bucket: Mapped[Severity] = mapped_column(
         Enum(Severity, name="finding_severity"),
         default=Severity.INFO,
         nullable=False,
@@ -78,10 +86,10 @@ class Finding(Base, TimestampMixin):
     )
 
     # --- Evidence / guidance (evidence is stored redacted) -----------------
-    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
     impact: Mapped[str | None] = mapped_column(Text, nullable=True)
     recommendation: Mapped[str | None] = mapped_column(Text, nullable=True)
-    references: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    references: Mapped[list[str] | None] = mapped_column(JSONType, nullable=True)
     # For checks that can't be confirmed in black-box mode (spec section 47).
     limitation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -96,8 +104,9 @@ class Finding(Base, TimestampMixin):
     )
 
     __table_args__ = (
-        Index("ix_findings_scan_severity", "scan_id", "severity"),
+        Index("ix_findings_scan_severity", "scan_id", "severity_bucket"),
+        Index("ix_findings_scan_final_score", "scan_id", "final_score"),
     )
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f"<Finding {self.rule_id} {self.severity} final={self.cawasma_final_score}>"
+        return f"<Finding {self.check_id} {self.severity_bucket} final={self.final_score}>"

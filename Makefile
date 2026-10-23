@@ -40,11 +40,8 @@ typecheck: ## mypy only
 migrate: ## Apply Alembic migrations inside the api container
 	$(COMPOSE) run --rm --no-deps api alembic upgrade head
 
-seed: ## Insert the demo scan (idempotent)
-	$(COMPOSE) run --rm --no-deps api python -m app.db.seed
+seed: ## Insert sample data: 1 target, 2 scans, 10 endpoints, 16 findings (idempotent)
+	$(COMPOSE) run --rm --no-deps api python scripts/seed.py
 
-reset: ## Wipe the database volume, restart, migrate and seed (ALL DATA LOST)
-	$(COMPOSE) down -v
-	$(MAKE) up
-	$(MAKE) migrate
-	$(MAKE) seed
+reset: ## Drop everything in the database, re-run migrations, seed (ALL DATA LOST)
+	$(COMPOSE) run --rm --no-deps api python scripts/reset.py --yes --seed

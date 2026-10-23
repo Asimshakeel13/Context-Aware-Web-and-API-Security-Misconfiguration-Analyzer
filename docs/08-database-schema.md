@@ -2,22 +2,23 @@
 
 PostgreSQL via SQLAlchemy (async) ORM, with Alembic migrations. The schema is a
 clean relational graph with foreign keys, indexes, timestamps and cascade rules.
-(Models live in `backend/app/db/models/`.)
+(Models live in `backend/app/db/models/`.) Column-level reference and ER
+diagram: [schema.md](schema.md); design decisions: [db-decisions.md](db-decisions.md).
 
 ## Tables
 
 | Table | Holds | Key relationships |
 |-------|-------|-------------------|
-| `scans` | one scan job: target, status, progress, stage, timings, error | parent of everything |
-| `endpoints` | discovered endpoints: url, path, method, status, **context class/confidence/reason** | `scan_id → scans` |
-| `findings` | security findings: rule, category, **both CVSS and CAWASMA scores**, evidence, impact, recommendation, limitation | `scan_id → scans`, `endpoint_id → endpoints` |
+| `scans` | one scan job: target, status, progress, stage, timings, error, **options, authorisation confirmation** | parent of everything |
+| `endpoints` | discovered endpoints: url, path, method, status, **sensitivity (context) class/confidence/reason, body signals** | `scan_id → scans` |
+| `findings` | security findings: check, category, **OWASP/CWE mappings, both CVSS and CAWASMA scores**, evidence (JSON), impact, recommendation, limitation | `scan_id → scans`, `endpoint_id → endpoints` |
 | `headers` | relevant captured response headers (redacted) | `endpoint_id → endpoints` |
 | `cookies` | cookie **metadata** only (flags, scope, length) — never the token value | `endpoint_id → endpoints` |
 | `tls_info` | host-level TLS: protocols, cipher, cert subject/issuer/expiry, self-signed, hostname match | `scan_id → scans` |
 | `attack_chains` | triggered chains: code, name, template composite score, severity | `scan_id → scans` |
 | `chain_findings` | many-to-many link between chains and their member findings | `chain_id`, `finding_id` |
 | `ai_insights` | optional executive summary (provider recorded) | `scan_id → scans` |
-| `feedback` | analyst feedback / false-positive corrections | `scan_id → scans` |
+| `feedback` | analyst feedback / false-positive corrections | `scan_id → scans`, `finding_id → findings` (optional) |
 
 ## Relationships & cascades
 
@@ -30,7 +31,7 @@ scans ─1:N─▶ endpoints ─1:N─▶ headers
    ├───1:N─▶ tls_info
    ├───1:N─▶ attack_chains
    ├───1:N─▶ ai_insights
-   └───1:N─▶ feedback
+   └───1:N─▶ feedback ◀── finding_id (optional)
 ```
 
 - Deleting a `scan` **cascades** to all its children (endpoints, findings,
@@ -45,10 +46,13 @@ The `findings` table keeps the official and custom values in **separate columns*
 so they are always distinguishable:
 
 ```
-cvss_vector · cvss_base_score                     ← official CVSS v3.1
-cawasma_context_multiplier · response_bonus · cawasma_final_score   ← CAWASMA custom
-severity · limitation
+cvss_vector · base_score                                    ← official CVSS v3.1
+cawasma_context_multiplier · response_bonus · final_score   ← CAWASMA custom
+severity_bucket · limitation
 ```
+
+The REST API still exposes these as `cvss_base_score`, `cawasma_final_score`
+and `severity` (db-decisions D2).
 
 ## Portability
 

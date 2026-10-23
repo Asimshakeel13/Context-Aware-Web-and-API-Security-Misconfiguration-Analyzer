@@ -10,13 +10,21 @@ import enum
 
 
 class ScanStatus(str, enum.Enum):
-    """Lifecycle of a scan job (spec section 24)."""
+    """Lifecycle of a scan job: queued -> running -> done | failed."""
 
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
-    COMPLETED = "COMPLETED"
+    DONE = "DONE"
     FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
+
+    @property
+    def public_value(self) -> str:
+        """Value exposed by the API, WebSocket and reports.
+
+        ``DONE`` is still published as ``"COMPLETED"`` so the current frontend
+        keeps working (docs/db-decisions.md, D3).
+        """
+        return "COMPLETED" if self is ScanStatus.DONE else self.value
 
 
 class Severity(str, enum.Enum):

@@ -23,7 +23,7 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 router = APIRouter(tags=["websocket"])
 
-_TERMINAL = {ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED}
+_TERMINAL = {ScanStatus.DONE, ScanStatus.FAILED}
 
 
 async def _snapshot(scan_id: uuid.UUID) -> dict | None:
@@ -35,7 +35,7 @@ async def _snapshot(scan_id: uuid.UUID) -> dict | None:
         return {
             "type": "snapshot",
             "scan_id": str(scan.id),
-            "status": scan.status.value,
+            "status": scan.status.public_value,
             "percent": scan.progress,
             "stage": scan.current_stage,
             "terminal": scan.status in _TERMINAL,
