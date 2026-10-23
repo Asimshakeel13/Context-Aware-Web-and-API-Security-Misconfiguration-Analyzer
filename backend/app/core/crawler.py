@@ -54,8 +54,12 @@ def _normalize(url: str) -> str:
 
 
 class Crawler:
-    def __init__(self, engine: HttpEngine) -> None:
+    def __init__(self, engine: HttpEngine, *, max_depth: int | None = None,
+                 use_wordlist: bool = True) -> None:
         self._engine = engine
+        # Per-scan depth (ScanRequest.crawl_depth), never above the global cap.
+        self._max_depth = min(max_depth or settings.MAX_CRAWL_DEPTH, settings.MAX_CRAWL_DEPTH)
+        self._use_wordlist = use_wordlist
         self._seen: set[tuple[str, str]] = set()  # (url, method)
         self._results: list[DiscoveredEndpoint] = []
 
@@ -105,7 +109,7 @@ class Crawler:
                 for link, method, how in links:
                     if same_origin(seed, link):
                         added = self._add(link, method, how)
-                        if added and depth < settings.MAX_CRAWL_DEPTH:
+                        if added and depth < self._max_depth:
                             if method == "GET":
                                 queue.append((_normalize(link), depth + 1))
             # Strategy 2: JS scan (inline + referenced already added as endpoints)
@@ -114,8 +118,9 @@ class Crawler:
                     if same_origin(seed, link):
                         self._add(link, "GET", DiscoveryMethod.JAVASCRIPT)
 
-        # Strategy 3: wordlist probing (bounded).
-        await self._probe_wordlist(seed)
+        # Strategy 3: wordlist probing (bounded; ScanRequest.use_wordlist).
+        if self._use_wordlist:
+            await self._probe_wordlist(seed)
 
         logger.info("crawler discovered %d endpoints", len(self._results))
         return self._results
