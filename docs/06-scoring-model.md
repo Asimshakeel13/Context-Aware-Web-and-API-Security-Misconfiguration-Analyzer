@@ -80,11 +80,11 @@ values can never be confused:
 
 ```
 cvss_vector                 e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N
-cvss_base_score             e.g. 6.1   (official)
+base_score                  e.g. 6.1   (official)
 cawasma_context_multiplier  e.g. 2.0   (custom)
 response_bonus              e.g. 2.0   (custom)
-cawasma_final_score         e.g. 10.0  (custom)
-severity                    e.g. CRITICAL
+final_score                 e.g. 10.0  (custom)
+severity_bucket             e.g. CRITICAL
 ```
 
 ## Findings vs. attack chains

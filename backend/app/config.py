@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # --- Datastores --------------------------------------------------------
-    # Async driver (asyncpg) is used by FastAPI request handlers and the
-    # scanner pipeline. Alembic uses a sync URL derived from this one.
+    # Async driver (asyncpg) everywhere: FastAPI, the scanner pipeline, Celery
+    # tasks and Alembic migrations.
     DATABASE_URL: str = "postgresql+asyncpg://cawasma:cawasma@localhost:5432/cawasma"
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
@@ -76,16 +76,6 @@ class Settings(BaseSettings):
     def frontend_origins(self) -> list[str]:
         """CORS origins as a clean list."""
         return [o.strip() for o in self.FRONTEND_ORIGIN.split(",") if o.strip()]
-
-    @property
-    def sync_database_url(self) -> str:
-        """Synchronous URL for Alembic / Celery sync access.
-
-        Converts the asyncpg URL to a psycopg2 URL by swapping the driver.
-        """
-        return self.DATABASE_URL.replace("+asyncpg", "+psycopg2").replace(
-            "postgresql+psycopg2", "postgresql+psycopg2"
-        )
 
     @field_validator("MAX_CRAWL_DEPTH")
     @classmethod

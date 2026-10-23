@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import settings as _settings
 from app.db.models import Base
-from app.db.session import get_session
+from app.db.session import enable_sqlite_foreign_keys, get_session
 
 _settings.AUTO_DISPATCH_SCANS = False  # no Celery broker in tests
 from app.main import app  # noqa: E402 - must follow the settings override
@@ -35,6 +35,7 @@ async def engine():
     if _SQLITE_FILE and os.path.exists(_SQLITE_FILE):
         os.remove(_SQLITE_FILE)
     eng = create_async_engine(TEST_DB, echo=False)
+    enable_sqlite_foreign_keys(eng)  # enforce ON DELETE rules like PostgreSQL
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
