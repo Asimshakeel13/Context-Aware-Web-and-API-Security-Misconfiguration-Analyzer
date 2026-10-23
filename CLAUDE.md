@@ -29,27 +29,61 @@ are the data and scoring references.
 > official base score and the context-aware score in separate columns, as the
 > `findings` table does today, and update docs/06 to match.
 
-## Team
+## Team and file ownership
 
 | Who | Area | Owns |
 |-----|------|------|
-| **Atta** | Backend & scanner engine | everything under `backend/` except `app/ml/` (see below) |
-| **Neelam** | Frontend (Next.js) | `frontend/` and the `frontend` service in `docker-compose.yml` |
-| **Asim** | Security specs, ML, evaluation | `backend/app/ml/`, `docker-compose.eval.yml`, check specs/CVSS vectors (reviewed with Atta) |
+| **Atta** | Backend & scanner engine | `backend/` except the paths owned by Asim below; `config/`; root infra (`docker-compose.yml` except the frontend service, `Makefile`, `.github/`) |
+| **Neelam** | Frontend (Next.js) | `frontend/`, the `frontend` service in `docker-compose.yml`, the `frontend` CI job |
+| **Asim** | Check specs, CVSS mapping, ML, evaluation | `backend/app/ml/`, `backend/app/core/checks/catalog.py` (rule specs + CVSS v3.1 vectors), `docs/05-security-checks.md`, `eval/`, `docker-compose.eval.yml` |
 
-Atta's files:
+**Rule: nobody edits another person's files without asking first.** That
+includes Claude sessions. If a change needs to touch someone else's area, stop
+and ask the owner (or leave a note in the PR) instead of editing. Ownership is
+also declared in `.github/CODEOWNERS`, so the owner is requested as reviewer.
+
+Adding a check spans two owners: Asim adds the catalog entry (spec + vector),
+Atta adds the detection function and its unit test.
+
+The current `frontend/` is a React + Vite SPA. Neelam's Next.js app replaces it
+in the same compose slot.
+
+## Branches and pull requests
+
+- Branch names: `<name>/pNN-topic`, e.g. `atta/p01-repo-setup`,
+  `neelam/p03-scan-dashboard`, `asim/p02-cvss-mapping`. `<name>` is one of
+  `atta`, `neelam`, `asim`; `NN` is the two-digit phase number; `topic` is
+  lowercase kebab-case. CI fails PRs from branches that don't match.
+- No direct pushes to `main`; open a PR using `.github/pull_request_template.md`.
+- One topic per PR. CI must be green before merging.
+
+## Atta: backend & engine
+
+Owned files:
 
 - `backend/app/core/engine.py`: async httpx engine (limits, redirects, SSRF re-check per hop)
 - `backend/app/core/crawler.py`: endpoint discovery (seed, HTML, JS, wordlist, recursive)
-- `backend/app/core/checks/`: the 58 checks (a package; one module per category, plus `catalog.py`)
+- `backend/app/core/checks/` (except `catalog.py`): detection functions, one module per category
 - `backend/app/core/cvss.py`: scoring
 - `backend/app/core/reports.py`: JSON/CSV/HTML/PDF renderers (DB-free); data assembly in `services/report_service.py`
 - FastAPI app: `backend/app/main.py`, `backend/app/api/`
 - Celery: `backend/app/workers/`
 - DB: `backend/app/db/` (models, session, seed), `backend/migrations/`
 
-The current frontend in `frontend/` is a React + Vite SPA. Neelam's Next.js app
-replaces it in the same compose slot.
+Notes:
+
+- Next up: replace the multiplier formula in `cvss.py` with CVSS v3.1
+  environmental-metric recomputation (see "Current state vs goal").
+- A target whose DNS fails currently "completes" with header findings; the
+  pipeline should mark it FAILED or unreachable instead.
+
+## Neelam: frontend
+
+<!-- Neelam: stack, how to run, API endpoints consumed, conventions. -->
+
+## Asim: specs, CVSS mapping, ML, evaluation
+
+<!-- Asim: catalog/CVSS mapping notes, ML models + data, eval targets and metrics. -->
 
 ## Layout
 
@@ -65,6 +99,10 @@ backend/app/
   utils/     validators, security (SSRF), redaction, logging
 backend/migrations/   Alembic
 backend/tests/        unit/ integration/ api/ fixtures/
+config/               shared service config (e.g. postgres init scripts)
+docs/                 project documentation
+eval/                 evaluation targets, datasets, scripts (Asim)
+frontend/             web UI (Neelam)
 ```
 
 ## Conventions
@@ -107,11 +145,13 @@ make install   # pip install -e "backend[dev]" into .venv
 - Health: `curl localhost:8000/health` (also `/api/health`); Swagger at `/docs`.
 - Tests against Postgres (as CI does):
   `TEST_DATABASE_URL=postgresql+asyncpg://cawasma:cawasma@localhost:5446/cawasma_test make test`
-  (create the `cawasma_test` database first).
+  (`config/postgres/init/` creates `cawasma_test` on a fresh volume).
 - Single test: `cd backend && ../.venv/bin/python -m pytest tests/unit/test_cvss.py -q`
 - Faster image without the NLP stack: `INSTALL_ML=false make up`.
 - Frontend: `docker compose --profile frontend up -d --build`.
 - Eval targets: `docker compose -f docker-compose.eval.yml up -d` (isolated `cawasma-eval` network).
 
-CI (`.github/workflows/ci.yml`) runs ruff, mypy, Alembic upgrade/downgrade, and
-pytest against a Postgres 16 service container.
+CI (`.github/workflows/ci.yml`) has independent jobs: branch-name check (PRs),
+backend lint (ruff + mypy), and backend tests (Alembic upgrade/downgrade + pytest
+against a Postgres 16 service container). A commented `frontend` job is ready
+for Neelam to enable.
