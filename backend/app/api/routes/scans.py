@@ -6,7 +6,6 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.common import Page, PaginationMeta
 from app.api.schemas.scan import (
     ScanCreate,
     ScanCreated,
@@ -15,7 +14,6 @@ from app.api.schemas.scan import (
     ScanStatusResponse,
 )
 from app.db.session import get_session
-from app.dependencies import PaginationParams, pagination
 from app.services import scan_service
 from app.utils.validators import InvalidTargetError
 
@@ -38,17 +36,7 @@ async def create_scan(
     return ScanCreated(scan_id=scan.id, status=scan.status)
 
 
-@router.get("", response_model=Page[ScanResponse])
-async def list_scans(
-    page: PaginationParams = Depends(pagination),
-    session: AsyncSession = Depends(get_session),
-) -> Page[ScanResponse]:
-    rows, total = await scan_service.list_scans(session, page.offset, page.limit)
-    pages = (total + page.limit - 1) // page.limit
-    return Page[ScanResponse](
-        items=[ScanResponse.model_validate(r) for r in rows],
-        meta=PaginationMeta(page=page.page, limit=page.limit, total=total, pages=pages),
-    )
+# GET /api/scans (history) is now served by the contract router (routes/contract.py).
 
 
 async def _require_scan(session: AsyncSession, scan_id: uuid.UUID):

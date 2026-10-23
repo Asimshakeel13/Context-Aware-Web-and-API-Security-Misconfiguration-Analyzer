@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     AUTO_DISPATCH_SCANS: bool = True
     # Run scans in-process (no Celery/Redis needed). For simple deploys / demos.
     RUN_SCANS_INLINE: bool = False
+    # Contract v1 routes answer with example data (app/api/mock.py): no DB or
+    # scanner needed. For frontend development only.
+    MOCK_API: bool = False
 
     # Spec files (checks.yaml, cvss_mapping.yaml, chains.yaml). Defaults to the
     # repo's config/ dir; in Docker that resolves to /config (mounted).
