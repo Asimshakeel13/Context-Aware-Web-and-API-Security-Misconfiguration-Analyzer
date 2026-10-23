@@ -35,7 +35,7 @@ are the data and scoring references.
 |-----|------|------|
 | **Atta** | Backend & scanner engine | `backend/` except the paths owned by Asim below; `config/`; root infra (`docker-compose.yml` except the frontend service, `Makefile`, `.github/`) |
 | **Neelam** | Frontend (Next.js) | `frontend/`, the `frontend` service in `docker-compose.yml`, the `frontend` CI job |
-| **Asim** | Check specs, CVSS mapping, ML, evaluation | `backend/app/ml/`, `backend/app/core/checks/catalog.py` (rule specs + CVSS v3.1 vectors), `docs/05-security-checks.md`, `eval/`, `docker-compose.eval.yml` |
+| **Asim** | Check specs, CVSS mapping, ML, evaluation | `backend/app/ml/`, `backend/app/core/checks/catalog.py` (rule specs + CVSS v3.1 vectors), `config/checks.yaml`, `config/cvss_mapping.yaml`, `config/chains.yaml`, `docs/05-security-checks.md`, `eval/`, `docker-compose.eval.yml` |
 
 **Rule: nobody edits another person's files without asking first.** That
 includes Claude sessions. If a change needs to touch someone else's area, stop

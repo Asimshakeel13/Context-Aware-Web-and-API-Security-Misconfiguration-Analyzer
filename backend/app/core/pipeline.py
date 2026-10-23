@@ -196,8 +196,13 @@ async def _check_http_redirect(engine: HttpEngine, host: str) -> bool | None:
 
 
 async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
-                       *, probe: bool = True, allow_private: bool = False) -> ScanResult:
+                       *, probe: bool = True, allow_private: bool = False,
+                       crawl_depth: int | None = None,
+                       use_wordlist: bool = True) -> ScanResult:
     """Execute the full scan and return a structured result.
+
+    ``probe=False`` is passive mode: no TLS probe, redirect check or active
+    endpoint probes. ``crawl_depth`` and ``use_wordlist`` bound discovery.
 
     ``allow_private`` relaxes SSRF loopback/private-IP blocking and is intended
     for tests against a local mock server only.
@@ -212,7 +217,7 @@ async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
     async with HttpEngine(allow_private=allow_private) as engine:
         # --- Discovery ---------------------------------------------------
         await report("crawling", 8, "Discovering endpoints")
-        crawler = Crawler(engine)
+        crawler = Crawler(engine, max_depth=crawl_depth, use_wordlist=use_wordlist)
         discovered = await crawler.crawl(target)
         if not discovered:
             discovered = []

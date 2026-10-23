@@ -33,7 +33,7 @@ async def test_scan_runner_completes(engine, monkeypatch):
     async def noop(self, *a, **k):
         return None
 
-    async def patched_pipeline(target, on_progress=None, *, probe=True, allow_private=False):
+    async def patched_pipeline(target, on_progress=None, *, probe=True, allow_private=False, **_):
         return await run_pipeline(target, on_progress, probe=False, allow_private=True)
 
     monkeypatch.setattr(runner, "session_scope", fake_scope)
