@@ -55,7 +55,7 @@ async def run_scan_async(scan_id: str | uuid.UUID, *, probe: bool = True) -> Non
         try:
             result = await run_pipeline(scan.target_url, on_progress, probe=probe)
             await persist_result(session, scan, result)
-            scan.status = ScanStatus.COMPLETED
+            scan.status = ScanStatus.DONE
             scan.progress = 100
             scan.current_stage = "completed"
             scan.completed_at = datetime.now(UTC)

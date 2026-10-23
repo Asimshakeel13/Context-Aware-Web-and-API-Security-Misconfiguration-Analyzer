@@ -12,7 +12,8 @@ ARG INSTALL_DEV=false
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/opt/hf-cache
+    HF_HOME=/opt/hf-cache \
+    PYTHONPATH=/app
 
 # System libraries:
 #  - build-essential/libpq-dev: psycopg2 build

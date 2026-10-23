@@ -1,15 +1,20 @@
 """Endpoint model -- one discovered URL/method within a scan.
 
-Stores the NLP context classification (contribution 1) alongside basic response
-metadata. The full data model matches spec section 19.
+Stores the NLP sensitivity classification (contribution 1) and the
+response-body signals (contribution 3) alongside basic response metadata. Both
+feed the context-aware score of the endpoint's findings.
+
+``body_signals`` shape (see docs/schema.md)::
+
+    {"credentials": bool, "pii": bool, "financial": bool, "internal_ip": bool,
+     "bonus": float, "reasons": [str, ...]}
 """
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
-    JSON,
     Enum,
     Float,
     ForeignKey,
@@ -21,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, JSONType, TimestampMixin
 from app.db.models.enums import ContextClass, DiscoveryMethod
 
 if TYPE_CHECKING:
@@ -47,13 +52,19 @@ class Endpoint(Base, TimestampMixin):
     status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # --- NLP context classification (contribution 1) -----------------------
+    # --- NLP sensitivity classification (contribution 1) -------------------
+    # ``context_class`` is the endpoint-sensitivity class (CRITICAL..LOW).
     context_class: Mapped[ContextClass | None] = mapped_column(
         Enum(ContextClass, name="context_class"), nullable=True
     )
     context_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Explainable reasons, e.g. ["Contains authentication-related tokens"].
-    context_reason: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    context_reason: Mapped[list[str] | None] = mapped_column(JSONType, nullable=True)
+
+    # --- Response-body signals (contribution 3), redacted -------------------
+    body_signals: Mapped[dict[str, Any]] = mapped_column(
+        JSONType, default=dict, nullable=False
+    )
 
     response_time: Mapped[float | None] = mapped_column(Float, nullable=True)
     discovered_by: Mapped[DiscoveryMethod] = mapped_column(

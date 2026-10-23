@@ -50,7 +50,7 @@ async def build_report_data(session, scan_id: uuid.UUID) -> dict | None:
         select(Finding)
         .where(Finding.scan_id == scan_id)
         .options(selectinload(Finding.endpoint))
-        .order_by(Finding.cawasma_final_score.desc())
+        .order_by(Finding.final_score.desc())
     )).scalars())
 
     endpoints = list((await session.execute(
@@ -65,13 +65,13 @@ async def build_report_data(session, scan_id: uuid.UUID) -> dict | None:
 
     by_sev = {s.value: 0 for s in Severity}
     for f in findings:
-        by_sev[f.severity.value] += 1
+        by_sev[f.severity_bucket.value] += 1
 
     return {
         "scan": {
             "id": str(scan.id),
             "target_url": scan.target_url,
-            "status": scan.status.value,
+            "status": scan.status.public_value,
             "started_at": _dt(scan.started_at),
             "completed_at": _dt(scan.completed_at),
             "duration_seconds": scan.duration_seconds,
@@ -81,7 +81,7 @@ async def build_report_data(session, scan_id: uuid.UUID) -> dict | None:
             "total_endpoints": len(endpoints),
             "total_chains": len(chains),
             "by_severity": by_sev,
-            "max_score": max((f.cawasma_final_score or 0 for f in findings), default=0),
+            "max_score": max((f.final_score for f in findings), default=0),
         },
         "insight": scan.ai_insights[0].summary if scan.ai_insights else None,
         "tls": [{
@@ -100,15 +100,16 @@ async def build_report_data(session, scan_id: uuid.UUID) -> dict | None:
             "discovered_by": e.discovered_by.value,
         } for e in endpoints],
         "findings": [{
-            "rule_id": f.rule_id, "title": f.title,
-            "category": f.category.value, "severity": f.severity.value,
-            "cvss_vector": f.cvss_vector, "cvss_base_score": f.cvss_base_score,
+            "rule_id": f.check_id, "title": f.title,
+            "category": f.category.value, "severity": f.severity_bucket.value,
+            "owasp_map": f.owasp_map, "cwe_map": f.cwe_map,
+            "cvss_vector": f.cvss_vector, "cvss_base_score": f.base_score,
             "context_class": f.context_class.value if f.context_class else None,
             "cawasma_context_multiplier": f.cawasma_context_multiplier,
             "response_bonus": f.response_bonus,
-            "cawasma_final_score": f.cawasma_final_score,
+            "cawasma_final_score": f.final_score,
             "endpoint_url": f.endpoint.url if f.endpoint else None,
-            "evidence": f.evidence, "impact": f.impact,
+            "evidence": f.evidence.get("text"), "impact": f.impact,
             "recommendation": f.recommendation, "references": f.references,
             "limitation": f.limitation,
         } for f in findings],
@@ -116,6 +117,6 @@ async def build_report_data(session, scan_id: uuid.UUID) -> dict | None:
             "code": c.chain_code, "name": c.name, "description": c.description,
             "composite_score": c.template_composite_score,
             "severity": c.severity.value,
-            "member_findings": sorted({m.rule_id for m in c.findings}),
+            "member_findings": sorted({m.check_id for m in c.findings}),
         } for c in chains],
     }
