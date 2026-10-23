@@ -53,7 +53,13 @@ async def run_scan_async(scan_id: str | uuid.UUID, *, probe: bool = True) -> Non
                 last_pct = percent
 
         try:
-            result = await run_pipeline(scan.target_url, on_progress, probe=probe)
+            opts = scan.options or {}
+            result = await run_pipeline(
+                scan.target_url, on_progress,
+                probe=probe and not opts.get("passive_only", False),
+                crawl_depth=opts.get("crawl_depth"),
+                use_wordlist=opts.get("use_wordlist", True),
+            )
             await persist_result(session, scan, result)
             scan.status = ScanStatus.DONE
             scan.progress = 100

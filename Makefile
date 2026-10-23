@@ -7,7 +7,8 @@ PYTHON ?= $(if $(wildcard .venv/bin/python),$(CURDIR)/.venv/bin/python,python3)
 BACKEND := backend
 
 .DEFAULT_GOAL := help
-.PHONY: help up down test lint typecheck migrate seed reset logs install env
+.PHONY: help up down test lint typecheck migrate seed reset logs install env \
+	validate-checks validate-config
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -33,6 +34,12 @@ test: ## Run the test suite on the host (SQLite; set TEST_DATABASE_URL for Postg
 
 lint: ## ruff + mypy
 	cd $(BACKEND) && "$(PYTHON)" -m ruff check . && "$(PYTHON)" -m mypy
+
+validate-checks: ## Validate config/checks.yaml (specs + CVSS vectors)
+	cd $(BACKEND) && "$(PYTHON)" scripts/validate_specs.py checks
+
+validate-config: ## Validate checks, cvss_mapping and chains YAML; report catalog score drift
+	cd $(BACKEND) && "$(PYTHON)" scripts/validate_specs.py all
 
 typecheck: ## mypy only
 	cd $(BACKEND) && "$(PYTHON)" -m mypy

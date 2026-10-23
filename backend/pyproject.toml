@@ -26,6 +26,8 @@ dependencies = [
     # Reporting
     "weasyprint==63.1",
     "jinja2==3.1.4",
+    # Spec files in config/ (checks, CVSS mapping, chains)
+    "PyYAML==6.0.2",
 ]
 # The NLP stack (torch CPU, sentence-transformers, spaCy) is in
 # requirements-ml.txt because torch must come from PyTorch's CPU index.
@@ -37,6 +39,7 @@ dev = [
     "aiosqlite==0.22.1",
     "ruff==0.8.4",
     "mypy==1.14.1",
+    "types-PyYAML==6.0.12.20240917",
 ]
 
 [build-system]
