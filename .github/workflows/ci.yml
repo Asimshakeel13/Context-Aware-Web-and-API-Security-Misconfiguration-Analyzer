@@ -1,5 +1,8 @@
 name: CI
 
+# Jobs are independent so each owner can add or change theirs without touching
+# the others: branch-name (repo rule), backend-* (Atta), frontend (Neelam).
+
 on:
   push:
     branches: [main]
@@ -9,14 +12,27 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    working-directory: backend
-
 jobs:
-  lint:
-    name: Lint & type-check
+  branch-name:
+    name: Branch name (<name>/pNN-topic)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH" =~ ^(atta|neelam|asim)/p[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "::error::Branch '$BRANCH' must match <name>/pNN-topic, e.g. atta/p01-repo-setup (name: atta|neelam|asim)"
+            exit 1
+          fi
+
+  backend-lint:
+    name: Backend lint & type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,9 +46,12 @@ jobs:
       - name: mypy
         run: mypy
 
-  test:
-    name: Tests (PostgreSQL)
+  backend-test:
+    name: Backend tests (PostgreSQL)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     services:
       postgres:
         image: postgres:16-alpine
@@ -51,6 +70,7 @@ jobs:
       ENVIRONMENT: test
       TEST_DATABASE_URL: postgresql+asyncpg://cawasma:cawasma@localhost:5432/cawasma_test
       DATABASE_URL: postgresql+asyncpg://cawasma:cawasma@localhost:5432/cawasma_test
+      ALEMBIC_SQLALCHEMY_URL: postgresql+psycopg2://cawasma:cawasma@localhost:5432/cawasma_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,11 +83,26 @@ jobs:
       - run: pip install -e ".[dev]"
       - name: Migrations apply cleanly
         run: alembic upgrade head
-        env:
-          ALEMBIC_SQLALCHEMY_URL: postgresql+psycopg2://cawasma:cawasma@localhost:5432/cawasma_test
       - name: Migrations roll back cleanly
         run: alembic downgrade base
-        env:
-          ALEMBIC_SQLALCHEMY_URL: postgresql+psycopg2://cawasma:cawasma@localhost:5432/cawasma_test
       - name: pytest
         run: pytest -q
+
+  # ------------------------------------------------------------- frontend
+  # Neelam: uncomment and adjust once the Next.js app is in frontend/.
+  # frontend:
+  #   name: Frontend lint & build
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: frontend
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "20"
+  #         cache: npm
+  #         cache-dependency-path: frontend/package-lock.json
+  #     - run: npm ci
+  #     - run: npm run lint
+  #     - run: npm run build

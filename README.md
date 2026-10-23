@@ -337,8 +337,10 @@ cawasma/
 │   ├── tests/             # unit / integration / api
 │   ├── pyproject.toml     # dependencies + ruff / mypy / pytest config
 │   └── Dockerfile
-├── frontend/
+├── config/              # shared service config (postgres init scripts)
 ├── docs/
+├── eval/                # evaluation targets, datasets, scripts
+├── frontend/
 ├── docker-compose.yml     # api, worker, postgres, redis (+ frontend profile)
 ├── docker-compose.eval.yml
 ├── Makefile               # up, down, test, lint, migrate, seed, reset
