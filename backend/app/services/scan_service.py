@@ -45,7 +45,8 @@ def scan_options() -> dict[str, Any]:
 
 
 async def create_scan(
-    session: AsyncSession, target_url: str, *, authorization_confirmed: bool = False
+    session: AsyncSession, target_url: str, *, authorization_confirmed: bool = False,
+    options: dict[str, Any] | None = None,
 ) -> Scan:
     """Validate the target and create a QUEUED scan record."""
     parsed = validate_target_url(target_url)  # raises InvalidTargetError
@@ -53,7 +54,7 @@ async def create_scan(
         target_url=parsed.url,
         status=ScanStatus.QUEUED,
         progress=0,
-        options=scan_options(),
+        options={**scan_options(), **(options or {})},
         authorization_confirmed=authorization_confirmed,
         authorization_confirmed_at=datetime.now(UTC) if authorization_confirmed else None,
     )
