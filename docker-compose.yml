@@ -97,24 +97,29 @@ services:
       start_period: 20s
 
   # ---------------------------------------------------------------- frontend
-  # Slot for Neelam's Next.js app. Opt-in so the backend starts on its own:
+  # Neelam's Next.js app (frontend/Dockerfile, standalone output). Opt-in so
+  # the backend starts on its own:
   #   docker compose --profile frontend up -d --build
-  # Currently builds the existing Vite SPA in ./frontend; when the Next.js app
-  # lands, point `context` at it, switch the build arg to NEXT_PUBLIC_API_BASE
-  # and change the port mapping to 3000. Keep FRONTEND_ORIGIN (CORS) in .env in
-  # sync with the published URL.
+  # NEXT_PUBLIC_API_URL is baked into the browser bundle at build time, so it
+  # is the api as the BROWSER reaches it (published port). API_INTERNAL_URL is
+  # the api service on the compose network, for server-side calls. Keep
+  # FRONTEND_ORIGIN (CORS) in .env in sync with the published URL.
   frontend:
     profiles: [frontend]
     build:
       context: ./frontend
       args:
-        VITE_API_BASE: http://localhost:${API_HOST_PORT:-8000}
+        NEXT_PUBLIC_API_URL: http://localhost:${API_HOST_PORT:-8000}
+    image: cawasma-frontend:dev
+    environment:
+      API_INTERNAL_URL: http://api:8000
     ports:
-      - "${FRONTEND_HOST_PORT:-5173}:80"
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
     networks: [backend]
+    restart: unless-stopped
 
 networks:
   backend:
