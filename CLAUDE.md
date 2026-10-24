@@ -80,7 +80,63 @@ Notes:
 
 ## Neelam: frontend
 
-<!-- Neelam: stack, how to run, API endpoints consumed, conventions. -->
+Stack: Next.js 16 (App Router, `src/` dir), React 19, TypeScript strict,
+Tailwind CSS v4, shadcn/ui (`base-nova` style on Base UI, `lucide-react` icons).
+Node >= 22 (shadcn's `cn` package requires it). Next 16 differs from older
+Next.js: check `frontend/node_modules/next/dist/docs/` before relying on
+remembered APIs (see `frontend/AGENTS.md`).
+
+Owned files:
+
+- `frontend/` (all of it): app code in `src/app/`, shadcn components in
+  `src/components/ui/` (add with `npx shadcn@latest add <name>`), helpers in `src/lib/`
+- `frontend/Dockerfile`: multi-stage, `output: "standalone"`, runs as non-root uid 1001
+- The `frontend` service in `docker-compose.yml`
+- The `frontend` job in `.github/workflows/ci.yml`
+
+Run (from `frontend/`):
+
+```bash
+npm ci                 # install (lockfile is npm 10-compatible; keep it that way)
+cp .env.example .env.local
+npm run dev            # dev server on http://localhost:3000
+npm run build && npm start   # production build, standalone server (honours PORT)
+```
+
+Tests and checks (from `frontend/`):
+
+```bash
+npm test               # Vitest + React Testing Library (src/**/*.test.ts(x)), single run
+npm run test:watch     # Vitest watch mode
+npx playwright install chromium   # once, for e2e
+npm run test:e2e       # Playwright (e2e/); builds and serves on :3100
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e   # against a running app
+npm run lint           # ESLint (next core-web-vitals + typescript, prettier-compatible)
+npm run format         # Prettier write (format:check in CI)
+npm run typecheck      # next typegen && tsc --noEmit
+```
+
+Docker: `docker compose --profile frontend up -d --build` serves the app on
+http://localhost:3000 (`FRONTEND_HOST_PORT`) alongside the api on :8000.
+
+Env vars (read only through `src/lib/env.ts`):
+
+- `NEXT_PUBLIC_API_URL`: api as the **browser** reaches it. Inlined at build
+  time, so in Docker it is a build arg; changing it needs a rebuild.
+- `API_INTERNAL_URL`: api as the Next.js **server** reaches it
+  (`http://api:8000` in compose). Read at runtime.
+
+The api's CORS allow-list (`FRONTEND_ORIGIN`, default `http://localhost:5173`)
+must include `http://localhost:3000` for browser calls from this app.
+
+Conventions:
+
+- Server Components by default; add `"use client"` only where interactivity needs it.
+- Consume the REST/report JSON with the field names in `docs/04-api-reference.md`
+  (`rule_id`, `cvss_base_score`, `cawasma_final_score`, ...); don't rename on the client.
+- Unit tests sit next to the code (`*.test.tsx`); e2e specs go in `e2e/`.
+- Lockfile: if you install with npm 11, re-run `npx npm@10 install` before
+  committing, or `npm ci` fails in Docker/CI (Node 22 ships npm 10).
 
 ## Asim: specs, CVSS mapping, ML, evaluation
 
