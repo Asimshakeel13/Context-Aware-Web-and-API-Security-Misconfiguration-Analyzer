@@ -16,7 +16,9 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
-from app.api.routes import findings, health, reports, scans, ws
+from app.api.errors import ApiError
+from app.api.routes import contract, findings, health, reports, scans, ws
+from app.api.schemas.contract import CONTRACT_VERSION
 from app.config import settings
 from app.utils.logging import configure_logging, get_logger
 
@@ -30,6 +32,8 @@ async def lifespan(app: FastAPI):
     logger.info(
         "starting cawasma backend env=%s debug=%s", settings.ENVIRONMENT, settings.DEBUG
     )
+    if settings.MOCK_API:
+        logger.warning("MOCK_API=true: contract routes return example data, not scans")
     yield
     logger.info("shutting down cawasma backend")
 
@@ -45,7 +49,9 @@ def create_app() -> FastAPI:
         title="CAWASMA — Context-Aware Web & API Security Misconfiguration Analyzer",
         description=(
             "Defensive black-box security misconfiguration analyzer. "
-            "REST + WebSocket backend for a separate JavaScript frontend."
+            f"Public routes follow API contract v{CONTRACT_VERSION} "
+            "(tag 'contract v1'; docs/api-contract.md). Deprecated routes serve the "
+            "pre-contract frontend and will be removed."
         ),
         version=__version__,
         lifespan=lifespan,
@@ -72,10 +78,17 @@ def create_app() -> FastAPI:
             404: "NOT_FOUND",
             405: "METHOD_NOT_ALLOWED",
             409: "CONFLICT",
+            501: "NOT_IMPLEMENTED",
         }.get(exc.status_code, "HTTP_ERROR")
         detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
         return JSONResponse(
             status_code=exc.status_code, content=_error_body(code, detail)
+        )
+
+    @app.exception_handler(ApiError)
+    async def api_error_handler(request: Request, exc: ApiError):
+        return JSONResponse(
+            status_code=exc.status_code, content=_error_body(exc.code, exc.message)
         )
 
     @app.exception_handler(RequestValidationError)
@@ -101,14 +114,35 @@ def create_app() -> FastAPI:
             ),
         )
 
+    # Every response says which API contract it follows.
+    @app.middleware("http")
+    async def contract_version_header(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Contract-Version"] = CONTRACT_VERSION
+        return response
+
     # --- Routers ---------------------------------------------------------
     app.include_router(health.router)
-    app.include_router(scans.router)
-    app.include_router(findings.router)
-    app.include_router(reports.router)
-    app.include_router(ws.router)
+    app.include_router(contract.router)
+    # Pre-contract routes used by the current Vite SPA; kept until it migrates.
+    for legacy in (scans.router, findings.router, reports.router, ws.router):
+        app.include_router(legacy, deprecated=True)
 
+    _add_contract_version_to_openapi(app)
     return app
+
+
+def _add_contract_version_to_openapi(app: FastAPI) -> None:
+    base_openapi = app.openapi
+
+    def openapi() -> dict:
+        if app.openapi_schema is None:
+            schema = base_openapi()
+            schema["info"]["x-contract-version"] = CONTRACT_VERSION
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
 
 app = create_app()

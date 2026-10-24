@@ -203,9 +203,16 @@ make migrate   # alembic upgrade head in the api container
 make seed      # sample data: 1 target, 2 scans, 10 endpoints, 16 findings, 1 chain
 make reset     # drop everything in the DB, migrate, seed
 make install   # pip install -e "backend[dev]" into .venv
+make validate-checks   # config/checks.yaml (validate-config: + mapping, chains)
+make openapi   # regenerate docs/openapi.json after any API change (CI checks it)
 ```
 
 - Health: `curl localhost:8000/health` (also `/api/health`); Swagger at `/docs`.
+- Contracts (frozen end of Sprint 1; changes follow their versioning rules):
+  API v1 `app/api/schemas/contract.py` + `docs/api-contract.md`; ML/CVSS
+  `app/core/contracts.py` + `docs/cvss-mapping-contract.md`; check specs
+  `app/core/specs.py` + `docs/check-spec-format.md`. `MOCK_API=true` makes the
+  contract routes return `app/api/mock.py` examples.
 - Tests against Postgres (as CI does):
   `TEST_DATABASE_URL=postgresql+asyncpg://cawasma:cawasma@localhost:5446/cawasma_test make test`
   (`config/postgres/init/` creates `cawasma_test` on a fresh volume).

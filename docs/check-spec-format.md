@@ -1,0 +1,177 @@
+# Check specification format (`config/checks.yaml`), version 1
+
+How a security check is specified, so the engine can run it and the CVSS
+scoring can trust it. **Owner of the file: Asim.** The engine side (loading,
+evaluating `http_condition`) is Atta's. Models and validation:
+`backend/app/core/specs.py`.
+
+```bash
+make validate-checks    # checks.yaml only
+make validate-config    # checks.yaml + cvss_mapping.yaml + chains.yaml (+ catalog report)
+```
+
+Both exit non-zero and print one line per problem when anything is invalid. CI
+runs `validate-config` on every push.
+
+## File layout
+
+```yaml
+spec_version: 1        # required; bumped only when this format changes
+checks:                # at least one
+  - check_id: HDR-001
+    ...
+```
+
+## Fields of a check
+
+| Field | Required | Type / rule | Example |
+|-------|----------|-------------|---------|
+| `check_id` | yes | `AAA-NNN`: 3 capital letters, dash, 3 digits; unique in the file | `HDR-001` |
+| `category` | yes | one of `HEADERS`, `COOKIES`, `CORS`, `TLS`, `REST_API`, `AUTH`, `INFO_DISCLOSURE` | `HEADERS` |
+| `title` | no | ≤ 255 chars; shown as the finding title | `Missing HSTS` |
+| `description` | yes | ≥ 10 chars: what is wrong and why it matters | |
+| `http_condition` | yes | when the check fires (below) | |
+| `owasp` | yes | ≥ 1 of `API1:2023`…`API10:2023` or `A01:2021`…`A10:2021` | `[API8:2023, A05:2021]` |
+| `cwe` | yes | ≥ 1 of `CWE-<number>` | `[CWE-319]` |
+| `base_cvss_vector` | yes | CVSS v3.1 **base** vector, rules below | `CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N` |
+| `recommendation` | no | how to fix | |
+| `references` | no | list of URLs | |
+| `limitation` | no | set when black-box testing cannot confirm the issue; shown to users | |
+
+Any other key is an error, so typos (`descripton`) are caught.
+
+There is **no `base_score` field**: the score is computed from
+`base_cvss_vector` with the FIRST v3.1 equations (`backend/app/core/cvss31.py`),
+so the two can never disagree. `make validate-checks` prints each computed score.
+
+### `base_cvss_vector` rules
+
+- starts with `CVSS:3.1/`;
+- exactly the 8 base metrics, once each, **in this order**:
+  `AV` (N/A/L/P), `AC` (L/H), `PR` (N/L/H), `UI` (N/R), `S` (U/C), `C`, `I`, `A` (H/L/N);
+- no temporal or environmental metrics: the environmental part is computed by
+  the engine from `config/cvss_mapping.yaml`
+  ([cvss-mapping-contract.md](cvss-mapping-contract.md)).
+
+## `http_condition`
+
+Evaluated against each in-scope response. The check fires when the rules match.
+
+| Key | Default | Values |
+|-----|---------|--------|
+| `method` | `GET` | `GET`, `HEAD`, `OPTIONS` only. The scanner never sends state-changing requests |
+| `scope` | `every_endpoint` | `every_endpoint` (each crawled endpoint) or `target_root` (the scan URL only) |
+| `match` | `all` | `all`: every rule must hold; `any`: one is enough |
+| `rules` | | list, at least one; each rule has exactly one of `header`, `status`, `body` |
+
+### Rule types
+
+**Header** (name is case-insensitive; values compared case-insensitively unless
+`case_sensitive: true`):
+
+| `op` | `value` | Fires when |
+|------|---------|------------|
+| `missing` | none | header absent |
+| `present` | none | header present |
+| `equals` / `not_equals` | required | value is / is not exactly `value` |
+| `contains` / `not_contains` | required | value does / does not contain `value` |
+| `matches` | required regex | value matches the Python regex (validated when loading) |
+
+```yaml
+- header: Strict-Transport-Security
+  op: missing
+```
+
+**Status code**:
+
+```yaml
+- status: in            # or not_in
+  value: [200, 206]     # 100-599
+```
+
+**Body** (the truncated, decoded response body):
+
+```yaml
+- body: matches         # contains | not_contains | matches
+  value: "(?i)index of /"
+```
+
+## The two sample checks
+
+From `config/checks.yaml`:
+
+```yaml
+spec_version: 1
+checks:
+  - check_id: HDR-001
+    category: HEADERS
+    title: Missing HSTS (Strict-Transport-Security)
+    description: >-
+      The HTTPS response does not send a Strict-Transport-Security header, so a
+      browser can be downgraded to plain HTTP and the session intercepted (MITM).
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Strict-Transport-Security
+          op: missing
+    owasp: [API8:2023, A05:2021]
+    cwe: [CWE-319]
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N   # 5.9
+
+  - check_id: HDR-004
+    category: HEADERS
+    title: Missing X-Content-Type-Options
+    description: >-
+      The response does not send 'X-Content-Type-Options: nosniff' (or sends
+      another value), so browsers may MIME-sniff the content and execute it.
+    http_condition:
+      match: any            # absent OR not "nosniff"
+      rules:
+        - header: X-Content-Type-Options
+          op: missing
+        - header: X-Content-Type-Options
+          op: not_equals
+          value: nosniff
+    owasp: [API8:2023, A05:2021]
+    cwe: [CWE-693]
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N   # 4.3
+```
+
+## What the validator rejects
+
+Examples of the messages you get (`make validate-checks`):
+
+```
+FAIL config/checks.yaml
+     checks.0.base_cvss_vector: Value error, invalid CVSS v3.1 base vector: missing base metric(s): A
+     checks.1.http_condition.rules.1.header: Value error, op 'not_equals' needs a value
+     checks.1.owasp.0: String should match pattern '^(API([1-9]|10):2023|A(0[1-9]|10):2021)$'
+```
+
+Also rejected: duplicate `check_id`, unknown keys, unsafe `method`, empty
+`rules`, a rule with two targets, invalid regexes, status codes outside 100–599,
+invalid YAML, and a missing or different `spec_version`.
+
+## Status and migration
+
+- `checks.yaml` holds 2 sample checks. The 58 live checks are still defined in
+  `backend/app/core/checks/catalog.py` (spec + vector) and
+  `backend/app/core/checks/*.py` (detection code). Moving them into
+  `checks.yaml` is the next step. The engine will read `http_condition` for
+  checks that can be expressed declaratively and keep Python detectors for the
+  rest.
+- **Known issue in the catalog (for Asim): 31 of the 58 rules have a
+  `base_score` that disagrees with their own vector.** For example, `INF-003`
+  records 9.1 but its vector scores 7.5, and `AUT-006` records 7.5 but its
+  vector scores 9.1. Those numbers are stored as the official CVSS base score,
+  so each one needs either the vector or the score fixed. `make validate-config`
+  lists them all. The new format prevents this because the score is always
+  computed from the vector.
+
+## Changing this format
+
+Bump `spec_version` and `CHECK_SPEC_VERSION` in `backend/app/core/specs.py`, keep
+the loader accepting the previous version until every file is migrated, and
+update this document. Agree it with Atta first, because the engine evaluates it.
