@@ -1,25 +1,22 @@
 # CAWASMA evaluation targets (owner: Asim).
 #
-# The images are pinned for reproducibility. Host ports bind to loopback only;
-# target-to-target and outbound network access is unavailable on the internal
-# evaluation network.
+# The images are pinned for reproducibility. The evaluation network is internal:
+# no outbound (internet) access, and Docker does not publish host ports for it,
+# so targets are reached from inside the network by service name
+# (http://juice-shop:3000, http://dvwa, http://vampi:5000, http://crapi-web).
 #
-# Start with: make eval-up
+# Start with: make eval-up      Collect endpoints with: make eval-collect
 
 name: cawasma-eval
 
-x-cawasma-eval-environment: &cawasma-eval-environment
-  # Applied only by an evaluation-stack override when the CAWASMA API/worker
-  # is attached to cawasma-eval. The current backend does not yet consume this
-  # setting; Atta should wire it into the SSRF allow-list before eval scans.
-  ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+# CAWASMA's own ALLOWED_INTERNAL_HOSTS (juice-shop, dvwa, vampi, crapi-web)
+# belongs in a separate override for its api/worker when they join this
+# network for eval scans; the target containers below don't read it.
 
 services:
   juice-shop:
     image: bkimminich/juice-shop@sha256:318714401c46c3c0a2458b5dccfc84af8e4839181d1a723701f8a6822b19294f
     hostname: juice-shop
-    ports:
-      - "127.0.0.1:${JUICE_SHOP_PORT:-3001}:3000"
     networks: [eval]
     healthcheck:
       test:
@@ -38,8 +35,6 @@ services:
   dvwa:
     image: vulnerables/web-dvwa@sha256:dae203fe11646a86937bf04db0079adef295f426da68a92b40e3b181f337daa7
     hostname: dvwa
-    ports:
-      - "127.0.0.1:${DVWA_PORT:-3002}:80"
     networks: [eval]
     healthcheck:
       test:
@@ -55,8 +50,6 @@ services:
   vampi:
     image: erev0s/vampi@sha256:7ba0b0a8a2f2a33059054b13c98e932c3102687bd3f687df8952e36575927f1b
     hostname: vampi
-    ports:
-      - "127.0.0.1:${VAMPI_PORT:-3003}:5000"
     networks: [eval]
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/ || exit 1"]
@@ -69,7 +62,6 @@ services:
     image: crapi/crapi-identity@sha256:327ab8561472891a5bc2145ba877de01e717674fa271834d22229ed4df8fc36d
     hostname: crapi-identity
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -89,7 +81,6 @@ services:
       SMTP_STARTTLS: "false"
       API_GATEWAY_URL: http://crapi-web
       ENABLE_SHELL_INJECTION: "false"
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -110,7 +101,6 @@ services:
     image: crapi/crapi-community@sha256:e5defa174e410bb615c14f257d52066d0534b87c4f4e25a93e4a12a0aea99323
     hostname: crapi-community
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -123,7 +113,6 @@ services:
       MONGO_DB_USER: admin
       MONGO_DB_PASSWORD: crapisecretpassword
       MONGO_DB_NAME: crapi
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -144,7 +133,6 @@ services:
     image: crapi/crapi-workshop@sha256:ab904182110a1ab11cef43cfd86c898c1139ebb08181ba7775dbcff8db2ea8cf
     hostname: crapi-workshop
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -159,7 +147,6 @@ services:
       MONGO_DB_NAME: crapi
       SECRET_KEY: cawasma-eval
       API_GATEWAY_URL: http://crapi-web
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -181,17 +168,13 @@ services:
   crapi-web:
     image: crapi/crapi-web@sha256:b14b5964af336d200449e28ffac9371e8929d4450f1e53e2787b4401adc31695
     hostname: crapi-web
-    ports:
-      - "127.0.0.1:${CRAPI_PORT:-3004}:80"
     environment:
-      <<: *cawasma-eval-environment
       COMMUNITY_SERVICE: crapi-community:8087
       IDENTITY_SERVICE: crapi-identity:8080
       WORKSHOP_SERVICE: crapi-workshop:8000
       CHATBOT_SERVICE: crapi-community:8087
       MAILHOG_WEB_SERVICE: crapi-mailhog:8025
       TLS_ENABLED: "false"
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
     depends_on:
       crapi-community:
         condition: service_healthy
@@ -248,6 +231,18 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+
+  # One-off endpoint collector (eval/labels/collect_endpoints.py) on the eval
+  # network: make eval-collect. Standard library only (no egress for pip).
+  collector:
+    image: python@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704  # python:3.12-slim
+    profiles: [tools]
+    user: "${EVAL_UID:-1000}:${EVAL_GID:-1000}"
+    working_dir: /eval
+    volumes:
+      - ./eval:/eval
+    command: ["python", "labels/collect_endpoints.py"]
+    networks: [eval]
 
 networks:
   eval:

@@ -1,6 +1,12 @@
-"""Collect bounded, same-origin endpoint paths from CAWASMA evaluation targets."""
+"""Collect bounded, same-origin endpoint paths from CAWASMA evaluation targets.
+
+The targets are only reachable inside the internal ``cawasma-eval`` network, so
+run this through ``make eval-collect`` (the ``collector`` service), or point it
+at another reachable host with ``--base-url NAME=URL``.
+"""
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import re
@@ -15,10 +21,10 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "eval" / "labels" / "endpoints_raw.csv"
 TARGETS = {
-    "juice-shop": "http://127.0.0.1:3001",
-    "dvwa": "http://127.0.0.1:3002",
-    "vampi": "http://127.0.0.1:3003",
-    "crapi": "http://127.0.0.1:3004",
+    "juice-shop": "http://juice-shop:3000",
+    "dvwa": "http://dvwa:80",
+    "vampi": "http://vampi:5000",
+    "crapi": "http://crapi-web:80",
 }
 OPENAPI_PATHS = ("/openapi.json", "/swagger.json", "/api-docs", "/openapi.yaml")
 MAX_PAGES = 80
@@ -65,11 +71,11 @@ def add_openapi_paths(base: str, rows: set[tuple[str, str]]) -> None:
         body, content_type = result
         try:
             if candidate.endswith(".yaml") or "yaml" in content_type:
-                import yaml
+                import yaml  # optional: the collector container has no PyYAML
                 document = yaml.safe_load(body)
             else:
                 document = json.loads(body)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, ImportError):
             continue
         if isinstance(document, dict) and isinstance(document.get("paths"), dict):
             for path, operation_map in document["paths"].items():
@@ -108,26 +114,48 @@ def crawl(base: str, rows: set[tuple[str, str]]) -> None:
                     queue.append(child)
 
 
-def main() -> int:
-    targets = TARGETS
-    if len(sys.argv) > 1:
-        unknown = sorted(set(sys.argv[1:]) - set(TARGETS))
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("targets", nargs="*", help=f"subset of: {', '.join(TARGETS)}")
+    parser.add_argument("--base-url", action="append", default=[], metavar="NAME=URL",
+                        help="scan NAME at URL instead of the defaults (repeatable)")
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    args = parser.parse_args(argv)
+
+    if args.base_url:
+        targets = dict(item.split("=", 1) for item in args.base_url if "=" in item)
+        bad = [url for url in targets.values() if urlparse(url).scheme not in {"http", "https"}]
+        if len(targets) != len(args.base_url) or bad:
+            print("--base-url must be NAME=http(s)://host[:port]", file=sys.stderr)
+            return 2
+    else:
+        unknown = sorted(set(args.targets) - set(TARGETS))
         if unknown:
             print(f"unknown target(s): {', '.join(unknown)}", file=sys.stderr)
             return 2
-        targets = {name: TARGETS[name] for name in sys.argv[1:]}
+        targets = {name: TARGETS[name] for name in args.targets} if args.targets else TARGETS
+
     output_rows: set[tuple[str, str, str]] = set()
+    empty: list[str] = []
     for target, base in targets.items():
         rows: set[tuple[str, str]] = set()
         add_openapi_paths(base, rows)
         crawl(base, rows)
+        print(f"{target}: {len(rows)} endpoints from {base}", file=sys.stderr)
+        if not rows:
+            empty.append(target)
         output_rows.update((target, method, path) for method, path in rows)
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    with OUTPUT.open("w", newline="", encoding="utf-8") as handle:
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["target", "method", "path"])
         writer.writerows(sorted(output_rows))
-    print(f"wrote {len(output_rows)} endpoint rows to {OUTPUT}")
+    print(f"wrote {len(output_rows)} endpoint rows to {args.output}")
+    if empty:
+        # An unreachable target must not look like a target with no endpoints.
+        print(f"FAILED: no endpoints from {', '.join(empty)} (is it running and reachable?)",
+              file=sys.stderr)
+        return 1
     return 0
 
 
