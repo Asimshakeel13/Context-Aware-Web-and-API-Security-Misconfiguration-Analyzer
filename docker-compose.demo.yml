@@ -1,0 +1,51 @@
+# Vertical-slice demo: the dev stack plus a local HTTPS target that has every
+# security header except HSTS (backend/scripts/demo_target.py).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# Scan target URL: https://demo-target:8443/   (as the api container sees it)
+#
+# The target generates a throwaway CA at start-up and writes only the CA
+# certificate to the demo-certs volume; the api trusts it via SCAN_CA_BUNDLE,
+# so certificate verification stays on. ALLOWED_INTERNAL_HOSTS lets exactly
+# this hostname resolve to its private Docker address. Never set either of
+# these in .env.
+
+services:
+  demo-target:
+    image: cawasma-backend:dev
+    build:
+      context: ./backend
+      args:
+        INSTALL_ML: ${INSTALL_ML:-true}
+    command: >
+      python -m scripts.demo_target --name demo-target --port 8443
+      --ca-out /certs/demo-ca.pem
+    volumes:
+      - demo-certs:/certs
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, socket; assert os.path.exists('/certs/demo-ca.pem'); socket.create_connection(('localhost', 8443), 2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    environment:
+      ALLOWED_INTERNAL_HOSTS: demo-target
+      SCAN_CA_BUNDLE: /certs/demo-ca.pem
+    volumes:
+      - demo-certs:/certs:ro
+    depends_on:
+      demo-target:
+        condition: service_healthy
+
+  worker:
+    environment:
+      ALLOWED_INTERNAL_HOSTS: demo-target
+      SCAN_CA_BUNDLE: /certs/demo-ca.pem
+    volumes:
+      - demo-certs:/certs:ro
+
+volumes:
+  demo-certs:

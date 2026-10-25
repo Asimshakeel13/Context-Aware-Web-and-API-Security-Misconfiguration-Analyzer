@@ -69,6 +69,7 @@ findings (their `endpoint_id` becomes null).
 | `context_class`, `context_confidence` | enum, float | copied from the endpoint at scoring time |
 | `cawasma_context_multiplier`, `response_bonus` | float | inputs to the context-aware score |
 | `final_score` | float, required | CAWASMA context-aware score (not an official CVSS value) |
+| `final_vector`, `score_reasons` | string, JSON list | CVSS v3.1 base vector + `CR/IR/AR` that `final_score` recomputes from, and why each requirement was set (D19). Null for findings scored by the interim formula |
 | `severity_bucket` | enum, required | `CRITICAL` ≥ 9.0, `HIGH` ≥ 7.0, `MEDIUM` ≥ 4.0, `LOW` ≥ 0.1, `INFO` |
 | `evidence` | JSON, required | redacted: `{"text": "summary", ...check-specific keys}` |
 | `impact`, `recommendation`, `references`, `limitation` | text, text, JSON list, text | |
@@ -139,6 +140,7 @@ erDiagram
         string cvss_vector
         float base_score "official CVSS"
         float final_score "context-aware"
+        string final_vector "base + CR/IR/AR"
         enum severity_bucket
         jsonb evidence "redacted"
     }

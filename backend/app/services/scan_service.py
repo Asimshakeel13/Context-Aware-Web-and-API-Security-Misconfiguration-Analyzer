@@ -46,9 +46,13 @@ def scan_options() -> dict[str, Any]:
 
 async def create_scan(
     session: AsyncSession, target_url: str, *, authorization_confirmed: bool = False,
-    options: dict[str, Any] | None = None,
+    options: dict[str, Any] | None = None, dispatch: bool = True,
 ) -> Scan:
-    """Validate the target and create a QUEUED scan record."""
+    """Validate the target and create a QUEUED scan record.
+
+    ``dispatch=False`` leaves starting the scan to the caller (the contract
+    route runs it as a FastAPI background task).
+    """
     parsed = validate_target_url(target_url)  # raises InvalidTargetError
     scan = Scan(
         target_url=parsed.url,
@@ -62,7 +66,8 @@ async def create_scan(
     await session.commit()
     await session.refresh(scan)
     logger.info("scan created id=%s target=%s", scan.id, scan.target_url)
-    _dispatch(scan.id)
+    if dispatch:
+        _dispatch(scan.id)
     return scan
 
 

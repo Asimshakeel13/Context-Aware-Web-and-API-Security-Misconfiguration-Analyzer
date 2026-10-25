@@ -69,6 +69,8 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+        # Let browser code read these (POST /api/scan's Location, exports).
+        expose_headers=["Location", "X-Contract-Version", "Content-Disposition"],
     )
 
     # --- Consistent error handling ---------------------------------------
@@ -103,7 +105,10 @@ def create_app() -> FastAPI:
             content=_error_body(
                 "VALIDATION_ERROR", "Request validation failed."
             )
-            | {"details": exc.errors()},
+            # loc/msg/type only: "input" would echo the body, "ctx" may hold
+            # exception objects that aren't JSON.
+            | {"details": [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
+                           for e in exc.errors()]},
         )
 
     @app.exception_handler(Exception)

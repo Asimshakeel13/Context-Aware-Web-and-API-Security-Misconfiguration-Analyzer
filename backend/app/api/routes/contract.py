@@ -10,7 +10,7 @@ import asyncio
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 
 from app.api import mock
 from app.api.errors import ApiError
@@ -22,6 +22,7 @@ from app.db.models.enums import ScanStatus as ScanState
 from app.db.session import SessionDep
 from app.dependencies import PaginationParams, pagination
 from app.services import contract_service, scan_service
+from app.services.scan_runner import run_scan_async
 from app.utils.security import SSRFError, validate_url_ssrf
 from app.utils.validators import InvalidTargetError
 
@@ -47,8 +48,14 @@ def _not_found() -> ApiError:
     summary="Start a scan",
     responses={202: _example(mock.QUEUED_STATUS), **_errors(400, 422)},
 )
-async def start_scan(body: ScanRequest, session: SessionDep, response: Response) -> ScanStatus:
-    """Validate the target and queue a scan. Poll ``GET /api/results/{scan_id}``."""
+async def start_scan(body: ScanRequest, session: SessionDep, response: Response,
+                     background: BackgroundTasks) -> ScanStatus:
+    """Validate the target and queue a scan. Poll ``GET /api/results/{scan_id}``.
+
+    ``authorisation_confirmed`` must be ``true`` (the schema rejects anything
+    else with 422). The scan runs in this process as a background task for now
+    (QUEUED -> RUNNING -> DONE | FAILED); the Celery worker takes over later.
+    """
     if settings.MOCK_API:
         if not body.url.startswith("https://"):
             raise ApiError(400, "INVALID_TARGET", "Only https:// targets are allowed.")
@@ -64,10 +71,13 @@ async def start_scan(body: ScanRequest, session: SessionDep, response: Response)
             scan = await scan_service.create_scan(
                 session, body.url, authorization_confirmed=body.authorisation_confirmed,
                 options=body.model_dump(include={"crawl_depth", "use_wordlist", "passive_only"}),
+                dispatch=False,
             )
         except InvalidTargetError as exc:
             raise ApiError(400, "INVALID_TARGET", exc.reason) from exc
         result = contract_service.scan_status(scan)
+        if settings.AUTO_DISPATCH_SCANS:      # off in tests (no scan side effects)
+            background.add_task(run_scan_async, scan.id)
     response.headers["Location"] = f"/api/results/{result.scan_id}"
     return result
 

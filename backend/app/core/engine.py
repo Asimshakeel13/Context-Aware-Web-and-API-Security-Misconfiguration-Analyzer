@@ -19,6 +19,7 @@ A bad target never raises: every outcome is a :class:`ScanResponse`.
 from __future__ import annotations
 
 import asyncio
+import ssl
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -125,6 +126,15 @@ class PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
         await self._inner.sleep(seconds)
 
 
+def _tls_context() -> ssl.SSLContext:
+    """Certificate verification is always on. ``SCAN_CA_BUNDLE`` only adds trust
+    anchors (the self-signed demo/eval targets); it never disables checks."""
+    ctx = ssl.create_default_context()
+    if settings.SCAN_CA_BUNDLE:
+        ctx.load_verify_locations(cafile=settings.SCAN_CA_BUNDLE)
+    return ctx
+
+
 class HttpEngine:
     """Reusable async HTTP engine backed by one HTTP/2-capable httpx client."""
 
@@ -143,7 +153,7 @@ class HttpEngine:
 
         self._transport = httpx.AsyncHTTPTransport(
             http2=True,
-            verify=True,
+            verify=_tls_context(),
             limits=httpx.Limits(max_connections=concurrency,
                                 max_keepalive_connections=concurrency),
         )

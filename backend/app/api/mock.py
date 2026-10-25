@@ -30,8 +30,9 @@ from app.api.schemas.contract import (
     SeverityCounts,
 )
 from app.core.checks.catalog import CATALOG
+from app.core.checks.registry import CHECKS, load_implementations, spec_for
 from app.core.contracts import BodySignal, SensitivityClass
-from app.core.cvss import compute_score
+from app.core.cvss import compute_score, environmental_score
 from app.core.cvss31 import base_score
 
 DONE_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
@@ -82,18 +83,28 @@ def _endpoint_id(path: str) -> uuid.UUID:
 
 
 def _build_findings() -> list[Finding]:
+    load_implementations()
     out = []
     for n, check_id, path, cls, signals, bonus, force, owasp, cwe, evidence in _FINDINGS:
         meta = CATALOG[check_id]
-        base = base_score(meta.cvss_vector)
-        score = compute_score(base, cls, bonus, force_critical=force)
+        vector = meta.cvss_vector
+        base = base_score(vector)
+        legacy = compute_score(base, cls, bonus, force_critical=force)
+        final, bucket = legacy.cawasma_final_score, legacy.severity
+        env = None
+        if check_id in CHECKS:    # moved to the spec registry: scored as the pipeline does
+            vector = spec_for(check_id).base_cvss_vector
+            env = environmental_score(vector, cls or SensitivityClass.LOW, signals)
+            base, final, bucket = env.base_score, env.final_score, env.severity_bucket
         out.append(Finding(
             id=_uid(n), check_id=check_id, title=meta.name, category=meta.category,
             endpoint_id=_endpoint_id(path) if path else None,
             endpoint_url=TARGET + path if path else None,
-            owasp_map=owasp, cwe_map=cwe, cvss_vector=meta.cvss_vector,
-            base_score=base, final_score=score.cawasma_final_score,
-            severity_bucket=score.severity, evidence=evidence,
+            owasp_map=owasp, cwe_map=cwe, cvss_vector=vector,
+            base_score=base, final_score=final,
+            final_vector=env.vector if env else None,
+            score_reasons=list(env.score_reasons) if env else [],
+            severity_bucket=bucket, evidence=evidence,
             sensitivity_class=cls, body_signals=signals,
             chain_ids=[_CHAIN_ID] if check_id in _CHAIN_MEMBERS else [],
             recommendation=meta.recommendation, limitation=meta.limitation,

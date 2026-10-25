@@ -1,4 +1,4 @@
-# CAWASMA API contract v1.0.0
+# CAWASMA API contract v1.1.0
 
 The API the frontend builds against. **Frozen at the end of Sprint 1.**
 Machine-readable version: [`openapi.json`](openapi.json) (generate a typed
@@ -10,7 +10,7 @@ checked against it in CI.
 |---|---|
 | Base URL (dev) | `http://localhost:8000` |
 | Format | JSON, UTF-8. Timestamps are ISO 8601 in UTC (`2026-10-20T09:00:02Z`). Ids are UUIDs. |
-| Version header | every response carries `X-Contract-Version: 1.0.0` |
+| Version header | every response carries `X-Contract-Version: 1.1.0` |
 | Interactive docs | `http://localhost:8000/docs` (routes tagged **contract v1**) |
 | Example responses | [`examples/`](examples/): one JSON file per shape (`results-done.json`, `results-running.json`, `results-failed.json`, `scan-status-queued.json`, `scans.json`, `scan-request.json`, `error.json`), identical to what mock mode returns |
 
@@ -94,7 +94,7 @@ broken by `check_id`), so render them in the order received.
 <!-- example: ScanResults -->
 ```json
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "scan": {
     "scan_id": "11111111-1111-4111-8111-111111111111",
     "url": "https://shop.example.com",
@@ -121,6 +121,8 @@ broken by `check_id`), so render them in the order received.
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
       "base_score": 7.5,
       "final_score": 10.0,
+      "final_vector": null,
+      "score_reasons": [],
       "severity_bucket": "CRITICAL",
       "evidence": {
         "text": ".env file exposed on /.env",
@@ -145,6 +147,8 @@ broken by `check_id`), so render them in the order received.
       "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
       "base_score": 7.4,
       "final_score": 7.4,
+      "final_vector": null,
+      "score_reasons": [],
       "severity_bucket": "HIGH",
       "evidence": {"text": "Legacy TLS 1.0/1.1 offered", "protocols": ["TLSv1.1"]},
       "sensitivity_class": null,
@@ -189,6 +193,8 @@ in mock mode. Note that the chain references a finding not shown here.)
 | `owasp_map`, `cwe_map` | standards references; may be `[]` |
 | `cvss_vector`, `base_score` | the official CVSS v3.1 base vector and score of the check |
 | `final_score` | CAWASMA's context-aware score. Label it as such: **it is not an official CVSS score** |
+| `final_vector` | *since 1.1.* `cvss_vector` plus the `CR`/`IR`/`AR` security requirements `final_score` was computed from: paste it into any CVSS v3.1 calculator and its environmental score is `final_score`. `null` for findings still scored by the interim formula |
+| `score_reasons` | *since 1.1.* why each requirement was set, e.g. `["sensitivity:HIGH", "signal:CREDENTIALS", "CR:H<-sensitivity:HIGH+signal:CREDENTIALS", "base:5.9", "environmental:7.1"]`; `[]` when `final_vector` is `null`. Display only |
 | `severity_bucket` | `CRITICAL` ≥ 9.0, `HIGH` ≥ 7.0, `MEDIUM` ≥ 4.0, `LOW` ≥ 0.1, `INFO` (may be forced to `CRITICAL` when credentials are exposed) |
 | `evidence` | redacted JSON. `evidence.text` is always present; display other keys as key/value detail |
 | `sensitivity_class` | how sensitive the endpoint is: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`; `null` for host-level |
@@ -319,4 +325,7 @@ for history. The old dashboard list must switch to the new fields.
 
 ## Changelog
 
+- **1.1.0** (Sprint 2): findings gain `final_vector` and `score_reasons`
+  (optional, additive). Checks moved to the spec registry (today HDR-001,
+  TLS-009) are scored with CVSS v3.1 environmental metrics.
 - **1.0.0** (Sprint 1): first frozen version.

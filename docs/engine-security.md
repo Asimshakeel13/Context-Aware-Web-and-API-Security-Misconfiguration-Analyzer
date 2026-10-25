@@ -80,6 +80,14 @@ normal `.env`.
 `allow_private=True` (engine and pipeline) is a separate, **test-only** switch
 that lets the test suite reach its local mock server.
 
+## `SCAN_CA_BUNDLE` (demo and eval only)
+
+Path to a PEM file of extra CA certificates, **empty by default**. The engine
+always verifies certificates; this only adds trust anchors on top of the
+system store, so a self-signed demo or eval target can be scanned over HTTPS
+without turning verification off. `docker-compose.demo.yml` sets it to the
+demo target's certificate; never point it at a bundle you don't control.
+
 ## Passive mode
 
 `HttpEngine(passive_only=True)` refuses every method except GET and HEAD
