@@ -3,28 +3,28 @@ base_url: http://127.0.0.1:3003
 status: starter-unverified
 known_issues:
   - endpoint: /openapi.json
-    check_id: INF-002
+    check_id: HDR-008
     expected: absent
     source: "official docs: https://github.com/erev0s/VAmPI"
     notes: "OpenAPI exposure is intentional API documentation, not necessarily a framework version banner."
     verification: unverified
   - endpoint: /users/v1
-    check_id: API-001
+    check_id: API-003
     expected: present
     source: "official docs: https://github.com/erev0s/VAmPI"
     notes: "Starter hypothesis for unauthenticated user API access; verify with a passive GET only."
     verification: unverified
   - endpoint: /books/v1
-    check_id: API-001
+    check_id: API-003
     expected: present
     source: "official docs: https://github.com/erev0s/VAmPI"
     notes: "Starter hypothesis for intentionally exposed API data; verify response sensitivity manually."
     verification: unverified
 must_not_fire:
-  - INF-005
-  - COR-001
+  - INF-003/INF-004/INF-005
+  - COR-003
   - COR-002
-  - API-002
-  - CKI-001
+  - API-001
   - CKI-002
+  - CKI-001
   - CKI-003

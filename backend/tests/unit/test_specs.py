@@ -82,7 +82,7 @@ def test_invalid_check_specs_are_rejected(tmp_path, changes, message):
 
 def test_duplicate_check_ids_and_bad_files_are_rejected(tmp_path):
     data = copy.deepcopy(VALID)
-    data["checks"][1]["check_id"] = "HDR-001"
+    data["checks"][1]["check_id"] = data["checks"][0]["check_id"]
     with pytest.raises(SpecError, match="duplicate check_id"):
         load_checks(_write(tmp_path, data))
     with pytest.raises(SpecError, match="not valid YAML"):
