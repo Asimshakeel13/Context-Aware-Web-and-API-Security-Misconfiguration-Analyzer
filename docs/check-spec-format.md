@@ -31,12 +31,13 @@ checks:                # at least one
 | `title` | no | ≤ 255 chars; shown as the finding title | `Missing HSTS` |
 | `description` | yes | ≥ 10 chars: what is wrong and why it matters | |
 | `http_condition` | yes | when the check fires (below) | |
-| `owasp` | yes | ≥ 1 of `API1:2023`…`API10:2023` or `A01:2021`…`A10:2021` | `[API8:2023, A05:2021]` |
+| `owasp` | yes | ≥ 1 of `API1:2023`…`API10:2023`, `A01:2021`…`A10:2021` or `A01:2025`…`A10:2025` (the SRS cites OWASP Top 10 2025) | `[API8:2023, A02:2025]` |
 | `cwe` | yes | ≥ 1 of `CWE-<number>` | `[CWE-319]` |
 | `base_cvss_vector` | yes | CVSS v3.1 **base** vector, rules below | `CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N` |
 | `recommendation` | no | how to fix | |
 | `references` | no | list of URLs | |
 | `limitation` | no | set when black-box testing cannot confirm the issue; shown to users | |
+| `severity_notes` | no | how context should move the severity (the plan's Contract 1 "severity notes"); guidance for the CVSS mapping, not used in scoring | `raise with endpoint sensitivity` |
 
 Any other key is an error, so typos (`descripton`) are caught.
 
@@ -153,7 +154,7 @@ Examples of the messages you get (`make validate-checks`):
 FAIL config/checks.yaml
      checks.0.base_cvss_vector: Value error, invalid CVSS v3.1 base vector: missing base metric(s): A
      checks.1.http_condition.rules.1.header: Value error, op 'not_equals' needs a value
-     checks.1.owasp.0: String should match pattern '^(API([1-9]|10):2023|A(0[1-9]|10):2021)$'
+     checks.1.owasp.0: String should match pattern '^(API([1-9]|10):2023|A(0[1-9]|10):(2021|2025))$'
 ```
 
 Also rejected: duplicate `check_id`, unknown keys, unsafe `method`, empty
@@ -175,6 +176,12 @@ invalid YAML, and a missing or different `spec_version`.
   so each one needs either the vector or the score fixed. `make validate-config`
   lists them all. The new format prevents this because the score is always
   computed from the vector.
+
+## Changes
+
+- **spec_version 1, 2026-10-25:** accept OWASP Top 10 2025 ids; add optional
+  `severity_notes` (both from the per-person plan's Contract 1). Backward
+  compatible: every existing file stays valid.
 
 ## Changing this format
 

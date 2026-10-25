@@ -38,9 +38,10 @@ CVSS_MAPPING_VERSION = 1
 CHAINS_VERSION = 1
 
 CheckId = Annotated[str, Field(pattern=r"^[A-Z]{3}-\d{3}$", examples=["HDR-001"])]
-# OWASP API Security Top 10 2023 (API1-API10) or OWASP Top 10 2021 (A01-A10).
+# OWASP API Security Top 10 2023 (API1-API10) or OWASP Top 10 2021/2025 (A01-A10).
 OwaspId = Annotated[
-    str, Field(pattern=r"^(API([1-9]|10):2023|A(0[1-9]|10):2021)$", examples=["API8:2023"])
+    str, Field(pattern=r"^(API([1-9]|10):2023|A(0[1-9]|10):(2021|2025))$",
+               examples=["API8:2023", "A02:2025"])
 ]
 CweId = Annotated[str, Field(pattern=r"^CWE-[1-9]\d*$", examples=["CWE-319"])]
 
@@ -202,6 +203,9 @@ class CheckSpec(_Strict):
     recommendation: str | None = None
     references: list[str] = Field(default_factory=list)
     limitation: str | None = None
+    # How context should move the severity (Contract 1 "severity notes"),
+    # e.g. "raise with endpoint sensitivity". Guidance for the CVSS mapping.
+    severity_notes: str | None = None
 
     @field_validator("base_cvss_vector")
     @classmethod
