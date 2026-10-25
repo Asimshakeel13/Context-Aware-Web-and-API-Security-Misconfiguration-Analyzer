@@ -378,7 +378,7 @@ checks:
       match: all
       rules:
         - body: matches
-          value: "(?is)(?:Traceback \\(most recent call last\\)|at [A-Za-z0-9_.$]+\\([^\\n]+\\)|System\\.[A-Za-z]+Exception|\\.java:\\d+)"
+          value: "(?is)(?:Traceback \\(most recent call last\\)|(?:\\n\\s+at [^\\n]*\\(?[^\\s()]+:\\d+(?::\\d+)?\\)?){2,}|System\\.[A-Za-z]+Exception|\\.java:\\d+)"
     owasp: [A05:2021]
     cwe: [CWE-209]
     # Trace data can disclose internals and sometimes secrets, primarily affecting confidentiality.

@@ -56,3 +56,11 @@ def test_env_exposure_needs_several_key_value_lines():
     env = CHECKS["INF-003"].http_condition
     assert env.matches(_body("APP_ENV=production\nDB_HOST=10.0.3.17\nDB_PASSWORD=x\n"))
     assert not env.matches(_body("<p>Set\nDEBUG=false in your config.</p>"))
+
+
+def test_stack_trace_needs_a_real_trace():
+    trace = CHECKS["API-004"].http_condition
+    assert trace.matches(_body('Traceback (most recent call last):\n  File "app.py", line 3'))
+    assert trace.matches(_body("Error: boom\n    at handler (/srv/app.js:10:5)\n"
+                               "    at next (/srv/node_modules/express/lib/router.js:3:7)\n"))
+    assert not trace.matches(_body("function f(){ return init(config) } // look at init(config)"))
