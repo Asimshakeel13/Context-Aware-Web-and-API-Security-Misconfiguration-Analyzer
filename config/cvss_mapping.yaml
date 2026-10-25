@@ -1,22 +1,29 @@
 # Context -> CVSS v3.1 Security Requirements (owner: Asim).
 # Format: docs/cvss-mapping-contract.md   Validate with: make validate-config
 #
-# Values: L (Low), M (Medium), H (High), X (Not Defined = no change).
-# TEMPLATE: every row is X, so environmental scores equal base scores until
-# Asim fills in the real requirements.
+# X means Not Defined. It is intentional for LOW/public endpoints: a public
+# endpoint is the neutral environmental baseline, not a lower-value asset.
 mapping_version: 1
 
 sensitivity_classes:
-  CRITICAL: {CR: X, IR: X, AR: X}
-  HIGH:     {CR: X, IR: X, AR: X}
-  MEDIUM:   {CR: X, IR: X, AR: X}
+  # Public, non-sensitive content. No environmental override: preserve base score.
   LOW:      {CR: X, IR: X, AR: X}
+  # Ordinary user data and user-facing operations.
+  MEDIUM:   {CR: M, IR: M, AR: M}
+  # Login, token, session, and account-control surfaces.
+  HIGH:     {CR: H, IR: M, AR: M}
+  # Administrative, privileged, payment, and high-impact financial operations.
+  CRITICAL: {CR: H, IR: H, AR: H}
 
 body_signals:
-  CREDENTIALS: {CR: X, IR: X, AR: X}
-  PII:         {CR: X, IR: X, AR: X}
-  FINANCIAL:   {CR: X, IR: X, AR: X}
-  INTERNAL_IP: {CR: X, IR: X, AR: X}
+  # Passwords, tokens, API keys, and private keys affect secrecy and credential use.
+  CREDENTIALS: {CR: H, IR: H, AR: M}
+  # Personal data primarily raises the confidentiality requirement.
+  PII:         {CR: H, IR: M, AR: X}
+  # Financial records and payment data require strong confidentiality and integrity.
+  FINANCIAL:   {CR: H, IR: H, AR: M}
+  # Internal addresses reveal topology and may support targeted follow-on attacks.
+  INTERNAL_IP: {CR: M, IR: X, AR: X}
 
-# Per requirement, the highest of the endpoint's class and any detected signals wins.
+# Per requirement, the highest of the endpoint class and detected signals wins.
 combine: max
