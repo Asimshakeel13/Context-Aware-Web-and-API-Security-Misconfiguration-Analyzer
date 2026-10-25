@@ -8,7 +8,7 @@ BACKEND := backend
 
 .DEFAULT_GOAL := help
 .PHONY: help up down test lint typecheck migrate seed reset logs install env \
-	validate-checks validate-config openapi
+	validate-checks validate-config openapi eval-up eval-down eval-reset
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -55,3 +55,12 @@ seed: ## Insert sample data: 1 target, 2 scans, 10 endpoints, 16 findings (idemp
 
 reset: ## Drop everything in the database, re-run migrations, seed (ALL DATA LOST)
 	$(COMPOSE) run --rm --no-deps api python scripts/reset.py --yes --seed
+
+eval-up: ## Start pinned isolated evaluation targets and wait for healthchecks
+	$(COMPOSE) -f docker-compose.eval.yml up -d --wait
+
+eval-down: ## Stop and remove evaluation target containers
+	$(COMPOSE) -f docker-compose.eval.yml down
+
+eval-reset: ## Remove evaluation containers and their anonymous volumes
+	$(COMPOSE) -f docker-compose.eval.yml down --volumes --remove-orphans
