@@ -152,6 +152,41 @@ UUID v4 primary keys. All timestamps are timezone-aware (`timestamptz`);
 `scripts/`), so they ship in the backend Docker image and run inside the
 container (`make seed`, `make reset`).
 
+## D17. Data-model names vs column names
+
+The data model in `docs/project/project-summary.md` lists key fields by
+meaning; a few columns use names that were already in the code before the
+model was imported. They mean the same thing:
+
+| Data model | Column | Notes |
+|------------|--------|-------|
+| `SCAN.finished_at` | `scans.completed_at` | |
+| `SCAN.authorised` | `scans.authorization_confirmed` + `authorization_confirmed_at` | flag plus timestamp, as the DB prompt asked |
+| `SCAN.settings` | `scans.options` | D7 |
+| `ENDPOINT.sensitivity_class` | `endpoints.context_class` | D6 |
+| `ENDPOINT.discovery_strategy` | `endpoints.discovered_by` | `SEED`, `HTML`, `JAVASCRIPT`, `WORDLIST`, `RECURSIVE` |
+| `COOKIE.flags`, `scope` | `cookies.http_only`, `secure`, `same_site`; `domain`, `path` | one column per flag |
+| `TLS_INFO.protocol_versions` | `tls_info.protocols_offered` | |
+| `TLS_INFO.cert_expiry` | `tls_info.cert_not_after` | |
+| `ATTACK_CHAIN.template_id` | `attack_chains.chain_code` | e.g. `C005` |
+| `ATTACK_CHAIN.composite_score` | `attack_chains.template_composite_score` | |
+| `AI_INSIGHT.summary_text` | `ai_insights.summary` | |
+
+FINDING matches the model field for field. Renaming the others would change
+the API and reports for no gain, so they stay; new columns use the data-model
+names (D18).
+
+## D18. TLS_INFO is per host, not per endpoint
+
+The data model says "TLS handshake per endpoint", but a TLS handshake belongs
+to a host and port: every endpoint on `shop.example.com` gets the same
+certificate and protocols. So `tls_info` has one row per scanned host
+(`scan_id`, `host`), and TLS findings are host-level (`endpoint_id` null, D10).
+Migration 0002 added the model's `weak_ciphers` and `issues` fields:
+`weak_ciphers` holds weak cipher suites seen (today, the negotiated one, if
+weak), and `issues` the TLS check ids that fired. *Revisit* if one scan ever
+covers several hosts or ports: the rows already carry `host`.
+
 ## Noticed while seeding (for Asim)
 
 The built-in sensitivity classifier puts `/.env` in the **LOW** class. The

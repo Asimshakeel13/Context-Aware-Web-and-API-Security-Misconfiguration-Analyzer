@@ -31,6 +31,9 @@ class TlsInfo(Base, TimestampMixin):
 
     # Protocols that the server was observed to *offer*, e.g. ["TLSv1.2","TLSv1.3"].
     protocols_offered: Mapped[list[str] | None] = mapped_column(JSONType, nullable=True)
+    # Data model fields: weak cipher suites seen, and the TLS check ids that fired.
+    weak_ciphers: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    issues: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     negotiated_protocol: Mapped[str | None] = mapped_column(String(32), nullable=True)
     negotiated_cipher: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
