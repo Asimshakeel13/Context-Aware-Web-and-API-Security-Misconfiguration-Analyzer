@@ -1,0 +1,29 @@
+target: juice-shop
+base_url: http://127.0.0.1:3001
+status: starter-unverified
+known_issues:
+  - endpoint: /rest/products/search?q=
+    check_id: API-001
+    expected: present
+    source: "official docs: https://pwning.owasp-juice.shop/companion-guide/latest/part2/injection.html"
+    notes: "Starter hypothesis for unauthenticated product search; verify response and scope manually."
+    verification: unverified
+  - endpoint: /ftp
+    check_id: INF-004
+    expected: present
+    source: "official docs: https://pwning.owasp-juice.shop/companion-guide/latest/part2/miscellaneous.html"
+    notes: "Starter hypothesis for exposed file listing; verify the response is a directory index."
+    verification: unverified
+  - endpoint: /rest/user/whoami
+    check_id: API-001
+    expected: absent
+    source: "official docs: https://pwning.owasp-juice.shop/companion-guide/latest/part2/authentication.html"
+    notes: "Unauthenticated identity endpoint should not be treated as sensitive data access without manual confirmation."
+    verification: unverified
+must_not_fire:
+  - CKI-001
+  - CKI-002
+  - CKI-003
+  - COR-001
+  - COR-002
+  - API-002
