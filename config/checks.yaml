@@ -3,12 +3,34 @@
 spec_version: 1
 
 checks:
-  - check_id: HDR-001
-    category: HEADERS
-    title: Missing HSTS (Strict-Transport-Security)
+  - check_id: TRN-001
+    category: TLS
+    title: HTTP Does Not Redirect to HTTPS
     description: >-
-      The HTTPS response does not send a Strict-Transport-Security header, so a
-      browser can be downgraded to plain HTTP and the session intercepted (MITM).
+      A safe HTTP request to the target root does not receive a redirect to an
+      HTTPS URL, leaving users vulnerable to downgrade and interception.
+    http_condition:
+      method: GET
+      scope: target_root
+      match: all
+      rules:
+        - status: not_in
+          value: [301, 302, 303, 307, 308]
+    owasp: [A02:2021]
+    cwe: [CWE-319]
+    # Network redirect control is exposed to an unauthenticated remote client.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N
+    recommendation: "Redirect every HTTP request to the equivalent HTTPS URL."
+    limitation: >-
+      The engine must run this condition against the explicitly issued HTTP
+      probe, before following redirects; it must not evaluate an HTTPS response.
+
+  - check_id: HST-001
+    category: TLS
+    title: Missing HSTS
+    description: >-
+      The HTTPS response omits Strict-Transport-Security, allowing browsers to
+      revisit the site over HTTP and making downgrade attacks possible.
     http_condition:
       method: GET
       scope: every_endpoint
@@ -16,32 +38,459 @@ checks:
       rules:
         - header: Strict-Transport-Security
           op: missing
-    owasp: [API8:2023, A05:2021]
+    owasp: [A02:2021]
     cwe: [CWE-319]
-    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N   # 5.9
-    recommendation: "Send 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
-    references:
-      - https://owasp.org/www-project-secure-headers/
+    # Missing browser transport policy enables network attackers to affect confidentiality.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N
+    recommendation: "Send Strict-Transport-Security with a long max-age on HTTPS responses."
 
-  - check_id: HDR-004
-    category: HEADERS
-    title: Missing X-Content-Type-Options
+  - check_id: HST-002
+    category: TLS
+    title: Weak HSTS Policy
     description: >-
-      The response does not send 'X-Content-Type-Options: nosniff' (or sends
-      another value), so browsers may MIME-sniff the content and execute it.
+      Strict-Transport-Security is present but has a short max-age or omits
+      includeSubDomains, reducing the protection against downgrade attacks.
     http_condition:
       method: GET
       scope: every_endpoint
-      match: any            # fires if the header is absent OR not "nosniff"
+      match: any
+      rules:
+        - header: Strict-Transport-Security
+          op: matches
+          value: "(?i)max-age=(?:[0-9]|[1-9][0-9]{1,5})(?:;|,|$)"
+        - header: Strict-Transport-Security
+          op: not_contains
+          value: includeSubDomains
+    owasp: [A02:2021]
+    cwe: [CWE-319]
+    # A partial browser transport policy reduces but does not remove downgrade exposure.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
+    recommendation: "Use max-age=31536000 and includeSubDomains where appropriate."
+
+  - check_id: HDR-001
+    category: HEADERS
+    title: Missing Content-Security-Policy
+    description: >-
+      The response does not send Content-Security-Policy, removing a browser
+      control that can limit the impact of injected script and content.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Content-Security-Policy
+          op: missing
+    owasp: [A05:2021]
+    cwe: [CWE-693]
+    # Missing browser content restrictions can allow injected content to affect confidentiality and integrity.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+    recommendation: "Define a restrictive Content-Security-Policy appropriate to the application."
+
+  - check_id: HDR-002
+    category: HEADERS
+    title: Unsafe Content-Security-Policy
+    description: >-
+      Content-Security-Policy permits unsafe-inline or unsafe-eval, weakening
+      the policy's ability to prevent script injection.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - header: Content-Security-Policy
+          op: contains
+          value: "'unsafe-inline'"
+        - header: Content-Security-Policy
+          op: contains
+          value: "'unsafe-eval'"
+    owasp: [A05:2021]
+    cwe: [CWE-693]
+    # Unsafe script allowances materially weaken protection against client-side code execution.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+    recommendation: "Remove unsafe-inline and unsafe-eval; use nonces or hashes where needed."
+
+  - check_id: HDR-003
+    category: HEADERS
+    title: Missing or Weak Clickjacking Protection
+    description: >-
+      X-Frame-Options is absent or does not use DENY or SAMEORIGIN, so a browser
+      may render the response inside an attacker-controlled frame.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - header: X-Frame-Options
+          op: missing
+        - header: X-Frame-Options
+          op: not_equals
+          value: DENY
+        - header: X-Frame-Options
+          op: not_equals
+          value: SAMEORIGIN
+    owasp: [A05:2021]
+    cwe: [CWE-1021]
+    # Framing can expose or induce authenticated actions through a victim's browser.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+    recommendation: "Send X-Frame-Options: DENY or SAMEORIGIN and use CSP frame-ancestors."
+
+  - check_id: HDR-004
+    category: HEADERS
+    title: Missing frame-ancestors Directive
+    description: >-
+      Content-Security-Policy is absent or does not define frame-ancestors,
+      leaving modern browsers without an explicit framing allow-list.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - header: Content-Security-Policy
+          op: missing
+        - header: Content-Security-Policy
+          op: matches
+          value: "(?i)^(?!.*(?:^|[; ])frame-ancestors(?:[ ;]|$)).*$"
+    owasp: [A05:2021]
+    cwe: [CWE-1021]
+    # Missing framing restrictions can permit clickjacking with confidentiality and integrity impact.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+    recommendation: "Define CSP frame-ancestors for every browser-rendered sensitive response."
+
+  - check_id: HDR-005
+    category: HEADERS
+    title: Missing or Weak X-Content-Type-Options
+    description: >-
+      The response does not send X-Content-Type-Options: nosniff, allowing
+      browsers to MIME-sniff content and potentially execute it in the wrong context.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
       rules:
         - header: X-Content-Type-Options
           op: missing
         - header: X-Content-Type-Options
           op: not_equals
           value: nosniff
-    owasp: [API8:2023, A05:2021]
+    owasp: [A05:2021]
     cwe: [CWE-693]
-    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N   # 4.3
-    recommendation: "Set 'X-Content-Type-Options: nosniff'."
-    references:
-      - https://owasp.org/www-project-secure-headers/
+    # MIME confusion can turn otherwise passive content into browser-executed content.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
+    recommendation: "Set X-Content-Type-Options: nosniff."
+
+  - check_id: HDR-006
+    category: HEADERS
+    title: Missing or Weak Referrer-Policy
+    description: >-
+      Referrer-Policy is absent or permits cross-origin URL details to be sent,
+      which can disclose paths or query data through the Referer header.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - header: Referrer-Policy
+          op: missing
+        - header: Referrer-Policy
+          op: matches
+          value: "(?i)^(?:unsafe-url|no-referrer-when-downgrade|origin-when-cross-origin|no-referrer-when-downgrade).*$"
+    owasp: [A05:2021]
+    cwe: [CWE-200]
+    # Referrer leakage is an information disclosure issue with network-reachable exposure.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
+    recommendation: "Prefer strict-origin-when-cross-origin or a more restrictive policy."
+
+  - check_id: HDR-007
+    category: HEADERS
+    title: Missing Permissions-Policy
+    description: >-
+      The response omits Permissions-Policy, leaving powerful browser features
+      without an explicit origin allow-list.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Permissions-Policy
+          op: missing
+    owasp: [A05:2021]
+    cwe: [CWE-693]
+    # Unrestricted browser features can increase the impact of compromised or embedded content.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
+    recommendation: "Set Permissions-Policy and disable features that the application does not need."
+
+  - check_id: CKI-001
+    category: COOKIES
+    title: Session Cookie Missing Secure
+    description: >-
+      A session-looking cookie is set without the Secure attribute, allowing it
+      to be sent over an unencrypted HTTP connection if one is available.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Set-Cookie
+          op: matches
+          value: "(?i)^(?!.*;\\s*Secure(?:;|\\s|$)).*(?:session|sess|sid|auth|token|jwt)[^=]*="
+    owasp: [A05:2021]
+    cwe: [CWE-614]
+    # Session confidentiality can be lost over a downgraded or misconfigured transport.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:L/A:N
+    recommendation: "Set Secure on every session and authentication cookie."
+
+  - check_id: CKI-002
+    category: COOKIES
+    title: Session Cookie Missing HttpOnly
+    description: >-
+      A session-looking cookie is set without HttpOnly, allowing client-side
+      scripts to read the token if script injection occurs.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Set-Cookie
+          op: matches
+          value: "(?i)^(?!.*;\\s*HttpOnly(?:;|\\s|$)).*(?:session|sess|sid|auth|token|jwt)[^=]*="
+    owasp: [A05:2021]
+    cwe: [CWE-1004]
+    # Script-readable session tokens increase the confidentiality and integrity impact of XSS.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+    recommendation: "Set HttpOnly on cookies that carry session or authentication state."
+
+  - check_id: CKI-003
+    category: COOKIES
+    title: Session Cookie Missing SameSite
+    description: >-
+      A session-looking cookie is set without SameSite, allowing it to be sent
+      in more cross-site contexts than intended and increasing CSRF exposure.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Set-Cookie
+          op: matches
+          value: "(?i)^(?!.*;\\s*SameSite\\s*=).*(?:session|sess|sid|auth|token|jwt)[^=]*="
+    owasp: [A05:2021]
+    cwe: [CWE-1275]
+    # Cross-site cookie delivery can enable unauthorized state-changing requests.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:H/A:N
+    recommendation: "Set SameSite=Lax or Strict unless a documented cross-site flow requires None."
+
+  - check_id: COR-001
+    category: CORS
+    title: CORS Wildcard With Credentials
+    description: >-
+      The response allows every origin while also allowing credentials, which
+      can expose authenticated cross-origin requests to untrusted sites.
+    http_condition:
+      method: OPTIONS
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Access-Control-Allow-Origin
+          op: equals
+          value: "*"
+        - header: Access-Control-Allow-Credentials
+          op: equals
+          value: "true"
+    owasp: [A05:2021]
+    cwe: [CWE-942]
+    # A permissive cross-origin policy can expose authenticated data to arbitrary websites.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:L/A:N
+    recommendation: "Never combine wildcard origins with credentials; allow-list trusted origins."
+
+  - check_id: COR-002
+    category: CORS
+    title: Reflected CORS Origin
+    description: >-
+      The server reflects the caller-supplied Origin into
+      Access-Control-Allow-Origin without proving that the origin is trusted.
+    http_condition:
+      method: OPTIONS
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Access-Control-Allow-Origin
+          op: present
+    owasp: [A05:2021]
+    cwe: [CWE-942]
+    # Origin reflection can grant an attacker-controlled site access to authenticated responses.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:L/A:N
+    recommendation: "Compare Origin against a strict allow-list and reject untrusted origins."
+    limitation: >-
+      The engine must send a unique untrusted Origin and compare the response
+      value with that exact Origin; presence alone is not evidence of reflection.
+
+  - check_id: INF-001
+    category: INFO_DISCLOSURE
+    title: Server Version Banner
+    description: >-
+      The Server response header discloses a product name and version, giving
+      attackers technology and patch-level information for targeting.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: Server
+          op: matches
+          value: "(?i)^\\s*[^\\s/]+/[0-9]+(?:\\.[0-9]+){0,3}"
+    owasp: [A05:2021]
+    cwe: [CWE-200]
+    # Version disclosure lowers attacker uncertainty and supports targeted exploitation.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+    recommendation: "Remove product and version details from the Server header."
+
+  - check_id: INF-002
+    category: INFO_DISCLOSURE
+    title: Framework Version Banner
+    description: >-
+      The response discloses a framework or runtime through X-Powered-By or a
+      similar product-version header.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - header: X-Powered-By
+          op: matches
+          value: "(?i)^.+/[0-9]+(?:\\.[0-9]+){0,3}"
+        - header: X-AspNet-Version
+          op: present
+        - header: X-AspNetMvc-Version
+          op: present
+    owasp: [A05:2021]
+    cwe: [CWE-200]
+    # Runtime disclosure provides reconnaissance value but no direct privilege change.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+    recommendation: "Disable framework and runtime version headers in production."
+
+  - check_id: INF-003
+    category: INFO_DISCLOSURE
+    title: Stack Trace Disclosure
+    description: >-
+      The response body contains a recognizable application stack trace,
+      exposing source paths, implementation details, or internal state.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - body: matches
+          value: "(?is)(?:Traceback \\(most recent call last\\)|at [A-Za-z0-9_.$]+\\([^\\n]+\\)|System\\.[A-Za-z]+Exception|\\.java:\\d+)"
+    owasp: [A05:2021]
+    cwe: [CWE-209]
+    # Trace data can disclose internals and sometimes secrets, primarily affecting confidentiality.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+    recommendation: "Return generic production errors and log stack traces privately."
+
+  - check_id: INF-004
+    category: INFO_DISCLOSURE
+    title: Directory Listing
+    description: >-
+      The response appears to be an automatically generated directory index,
+      exposing file names and potentially sensitive deployment artifacts.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - body: matches
+          value: "(?is)<title>\\s*Index of /|<h1>\\s*Index of /|Parent Directory"
+    owasp: [A05:2021]
+    cwe: [CWE-548]
+    # File enumeration can reveal configuration and source artifacts useful for further compromise.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+    recommendation: "Disable directory indexing and deny access to deployment artifacts."
+
+  - check_id: INF-005
+    category: INFO_DISCLOSURE
+    title: Exposed Configuration or Backup Content
+    description: >-
+      The response body contains markers associated with .env, Git metadata,
+      private keys, or backup files, indicating sensitive deployment content.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - body: matches
+          value: "(?im)(?:^|[</\\s])(?:\\.env(?:\\.|\\s|$)|\\.git(?:/|\\\\)|(?:backup|dump|database)\\.(?:zip|tar|gz|sql)|-----BEGIN (?:RSA|OPENSSH|EC|PGP) PRIVATE KEY-----|^[A-Z][A-Z0-9_]{2,}=)"
+    owasp: [A05:2021]
+    cwe: [CWE-538]
+    # Exposed configuration or keys can directly disclose credentials and enable compromise.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+    recommendation: "Remove exposed artifacts, rotate disclosed secrets, and deny access at the server."
+    limitation: >-
+      The engine should apply this to responses from discovered artifact-like
+      paths and redact matched evidence before storage or reporting.
+
+  - check_id: INF-006
+    category: INFO_DISCLOSURE
+    title: Verbose Error Response
+    description: >-
+      The response exposes a development error page or diagnostic details
+      beyond a generic production error message.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: any
+      rules:
+        - body: matches
+          value: "(?is)(?:debug toolbar|debug mode|development mode|exception details|request id:|environment variables|internal server error.*(?:database|sql|query))"
+        - header: X-Debug-Token
+          op: present
+    owasp: [A05:2021]
+    cwe: [CWE-209]
+    # Diagnostic details disclose internal state and may reveal credentials or query structure.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+    recommendation: "Disable debug output and return a generic error envelope in production."
+
+  - check_id: API-001
+    category: REST_API
+    title: Sensitive-Looking Endpoint Accessible Without Authentication
+    description: >-
+      A sensitive-looking API endpoint returns a successful response to an
+      unauthenticated request, suggesting that access control may be missing.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - status: in
+          value: [200, 206]
+    owasp: [A01:2021]
+    cwe: [CWE-862]
+    # Unauthenticated access to sensitive resources directly threatens confidentiality and integrity.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+    recommendation: "Require and verify authorization before returning sensitive resource data."
+    limitation: >-
+      The engine must run this only on paths classified as sensitive and with
+      authentication explicitly absent; a successful response alone is not proof.
+
+  - check_id: API-002
+    category: AUTH
+    title: Authentication Endpoint Missing Rate-Limit Headers
+    description: >-
+      An authentication-related response omits both standard rate-limit
+      headers, so clients have no evidence that brute-force controls are exposed.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - header: RateLimit-Limit
+          op: missing
+        - header: X-RateLimit-Limit
+          op: missing
+    owasp: [A07:2021]
+    cwe: [CWE-770]
+    # Lack of observable throttling controls can enable repeated credential attacks.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N
+    recommendation: "Apply server-side throttling to authentication flows and expose consistent limits."
+    limitation: >-
+      The engine must apply this only to authentication endpoints; headers are
+      evidence of policy, not proof that server-side throttling is absent.
