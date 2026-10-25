@@ -1,11 +1,17 @@
 """Endpoint discovery crawler (spec section 18).
 
-Four strategies, all bounded by same-origin, MAX_CRAWL_DEPTH, and MAX_ENDPOINTS:
+Four strategies sharing one visited-set, bounded by same-origin scope,
+MAX_CRAWL_DEPTH, MAX_CRAWL_PAGES (pages fetched) and MAX_ENDPOINTS:
 
-  1. HTML extraction   -- <a href>, <form action> (+ method), <script src>
-  2. JavaScript scan   -- fetch()/axios/baseURL and /api/... paths in JS
-  3. Wordlist probing  -- a small controlled list of sensitive paths
-  4. Recursive crawl   -- BFS to depth<=2, visited-set dedup, same origin
+  1. HTML extraction   -- <a href>, <form action> (+ method), <script src>,
+                          <link href>, <iframe src>
+  2. JavaScript scan   -- fetch()/axios/baseURL and /api/... paths in inline
+                          scripts and in fetched script sources
+  3. Wordlist probing  -- the small list in app/data/wordlist.txt; skipped in
+                          passive mode
+  4. Recursive crawl   -- BFS to depth <= 2
+
+Off-host links are logged (and kept in ``Crawler.off_host``) but never fetched.
 
 The crawler is decoupled from the database: it returns dataclasses that the
 service layer persists later.
@@ -55,11 +61,14 @@ def _normalize(url: str) -> str:
 
 class Crawler:
     def __init__(self, engine: HttpEngine, *, max_depth: int | None = None,
-                 use_wordlist: bool = True) -> None:
+                 use_wordlist: bool = True, max_pages: int | None = None) -> None:
         self._engine = engine
         # Per-scan depth (ScanRequest.crawl_depth), never above the global cap.
         self._max_depth = min(max_depth or settings.MAX_CRAWL_DEPTH, settings.MAX_CRAWL_DEPTH)
-        self._use_wordlist = use_wordlist
+        # Wordlist probes are active requests: never in passive mode.
+        self._use_wordlist = use_wordlist and not engine.passive_only
+        self._max_pages = max_pages or settings.MAX_CRAWL_PAGES
+        self.off_host: set[str] = set()
         self._seen: set[tuple[str, str]] = set()  # (url, method)
         self._results: list[DiscoveredEndpoint] = []
 
@@ -93,7 +102,8 @@ class Crawler:
         queue: list[tuple[str, int]] = [(seed, 0)]
         visited: set[str] = set()
 
-        while queue and len(self._results) < settings.MAX_ENDPOINTS:
+        while (queue and len(visited) < self._max_pages
+               and len(self._results) < settings.MAX_ENDPOINTS):
             url, depth = queue.pop(0)
             if url in visited:
                 continue
@@ -105,17 +115,17 @@ class Crawler:
 
             ctype = (resp.content_type or "").lower()
             if "html" in ctype:
-                links = self._extract_html(url, resp.body)
-                for link, method, how in links:
-                    if same_origin(seed, link):
-                        added = self._add(link, method, how)
-                        if added and depth < self._max_depth:
-                            if method == "GET":
-                                queue.append((_normalize(link), depth + 1))
-            # Strategy 2: JS scan (inline + referenced already added as endpoints)
+                for link, method, how in self._extract_html(url, resp.body):
+                    if not self._in_scope(seed, link, url):
+                        continue
+                    added = self._add(link, method, how)
+                    # Follow GET links (pages and script sources) to the depth cap.
+                    if added and depth < self._max_depth and method == "GET":
+                        queue.append((_normalize(link), depth + 1))
+            # Strategy 2: JS scan (inline scripts and fetched script files).
             if "javascript" in ctype or "html" in ctype:
                 for link in self._extract_js(url, resp.body):
-                    if same_origin(seed, link):
+                    if self._in_scope(seed, link, url):
                         self._add(link, "GET", DiscoveryMethod.JAVASCRIPT)
 
         # Strategy 3: wordlist probing (bounded; ScanRequest.use_wordlist).
@@ -124,6 +134,17 @@ class Crawler:
 
         logger.info("crawler discovered %d endpoints", len(self._results))
         return self._results
+
+    def _in_scope(self, seed: str, link: str, found_on: str) -> bool:
+        """Same origin as the seed; anything else is logged and never fetched."""
+        if same_origin(seed, link):
+            return True
+        if urlparse(link).scheme in ("http", "https"):
+            normalized = _normalize(link)
+            if normalized not in self.off_host:
+                self.off_host.add(normalized)
+                logger.info("off-host link not followed: %s (found on %s)", normalized, found_on)
+        return False
 
     def _extract_html(self, base: str, html: str
                       ) -> list[tuple[str, str, DiscoveryMethod]]:
@@ -138,8 +159,9 @@ class Crawler:
             action = form.get("action") or base
             method = (form.get("method") or "GET").upper()
             out.append((urljoin(base, action), method, DiscoveryMethod.HTML))
-        for script in soup.find_all("script", src=True):
-            out.append((urljoin(base, script["src"]), "GET", DiscoveryMethod.HTML))
+        for tag, attr in (("script", "src"), ("link", "href"), ("iframe", "src")):
+            for el in soup.find_all(tag, **{attr: True}):
+                out.append((urljoin(base, el[attr]), "GET", DiscoveryMethod.HTML))
         return out
 
     def _extract_js(self, base: str, text: str) -> list[str]:

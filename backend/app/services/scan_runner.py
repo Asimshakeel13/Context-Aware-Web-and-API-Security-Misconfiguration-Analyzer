@@ -54,9 +54,11 @@ async def run_scan_async(scan_id: str | uuid.UUID, *, probe: bool = True) -> Non
 
         try:
             opts = scan.options or {}
+            passive = bool(opts.get("passive_only", False))
             result = await run_pipeline(
                 scan.target_url, on_progress,
-                probe=probe and not opts.get("passive_only", False),
+                probe=probe and not passive,
+                passive_only=passive,
                 crawl_depth=opts.get("crawl_depth"),
                 use_wordlist=opts.get("use_wordlist", True),
             )
