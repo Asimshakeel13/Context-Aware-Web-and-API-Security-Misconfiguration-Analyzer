@@ -17,6 +17,6 @@
 torch==2.5.1
 sentence-transformers==3.3.1
 spacy==3.8.2
-scikit-learn==1.6.0
-pandas==2.2.3
-matplotlib==3.9.3
+# Evaluation-only packages (scikit-learn, pandas, matplotlib, cvss) live in the
+# "ml" extra of pyproject.toml, not here: this file is what the api/worker image
+# installs, and the scanner does not need them at runtime.
