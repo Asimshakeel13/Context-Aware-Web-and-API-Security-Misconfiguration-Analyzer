@@ -214,7 +214,8 @@ async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
 
     await report("initializing", 2, "Preparing scan")
 
-    async with HttpEngine(allow_private=allow_private) as engine:
+    # Passive scans get an engine that can only send GET/HEAD.
+    async with HttpEngine(allow_private=allow_private, passive_only=not probe) as engine:
         # --- Discovery ---------------------------------------------------
         await report("crawling", 8, "Discovering endpoints")
         crawler = Crawler(engine, max_depth=crawl_depth, use_wordlist=use_wordlist)
