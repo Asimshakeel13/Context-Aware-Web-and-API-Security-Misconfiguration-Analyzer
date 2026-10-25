@@ -2,10 +2,20 @@
 
 Flow per scan:
 
-    crawl -> (host: TLS probe + HTTP->HTTPS check)
+    seed fetch (unreachable -> ScanError) -> crawl
+          -> (host: TLS probe + HTTP->HTTPS check)
           -> for each endpoint: fetch, classify path, classify body, probe
-             (OPTIONS / CORS / benign injection), run 58 checks, score
+             (OPTIONS / CORS / benign injection), run the checks, score
           -> correlate attack chains -> stats
+
+Two check systems run side by side until every rule has moved:
+
+* spec-registry checks (``checks/registry.py``, ``config/checks.yaml``) are
+  scored with CVSS v3.1 environmental metrics (``cvss.score_finding``): the
+  base vector plus CR/IR/AR from the endpoint's sensitivity class and body
+  signals, so ``final_vector`` recomputes to ``final_score``;
+* legacy ``@rule`` checks still use the interim multiplier formula
+  (``cvss.compute_score``) and have no ``final_vector``.
 
 This module is database-free: it returns dataclasses. Persistence lives in
 ``app/services/result_service.py`` and the Celery task. Progress is reported
@@ -20,9 +30,11 @@ from urllib.parse import urlparse
 
 from app.core.body_classifier import BodyClassification, classify_body
 from app.core.chains import DetectedChain, correlate_chains
-from app.core.checks import CheckContext, RawFinding, run_checks
+from app.core.checks import CheckContext, RawFinding, run_checks, run_spec_checks
+from app.core.checks import registry as spec_registry
+from app.core.contracts import BodySignal, EndpointInfo
 from app.core.crawler import Crawler
-from app.core.cvss import compute_score
+from app.core.cvss import compute_score, score_finding
 from app.core.engine import HttpEngine, HttpResult
 from app.core.sensitivity import get_classifier, raw_tokens
 from app.core.tls import TlsProbe, probe_tls
@@ -46,6 +58,11 @@ _BONUS_RULES = {"API-013", "API-003", "INF-001", "INF-003", "INF-005"}
 _FORCE_CRIT_RULES = {"API-013", "INF-003"}
 
 
+class ScanError(Exception):
+    """The scan cannot go on (e.g. target unreachable). The message is shown to
+    the user as the scan's ``error``, so it must not contain internals."""
+
+
 @dataclass
 class CookieMeta:
     name: str
@@ -61,13 +78,19 @@ class CookieMeta:
 class ScoredFinding:
     raw: RawFinding
     cvss_base_score: float
-    context_multiplier: float
-    response_bonus: float
+    context_multiplier: float | None      # interim formula only
+    response_bonus: float | None          # interim formula only
     cawasma_final_score: float
     severity: Severity
     context_class: ContextClass | None
     context_confidence: float | None
     endpoint_index: int | None
+    # Environmental scoring (spec-registry checks): base vector + CR/IR/AR.
+    final_vector: str | None = None
+    score_reasons: list[str] = field(default_factory=list)
+    evidence: dict | None = None          # structured evidence; else {"text": raw.evidence}
+    owasp_map: list[str] = field(default_factory=list)
+    cwe_map: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -131,6 +154,50 @@ def _parse_cookies(set_cookie_headers: list[str]) -> list[CookieMeta]:
             path=_str_attr(attrs, "path"),
         ))
     return metas
+
+
+def body_signals(body: BodyClassification | None) -> set[BodySignal]:
+    """The ML-contract signal set for a body classification."""
+    if body is None:
+        return set()
+    flags = {BodySignal.CREDENTIALS: body.credentials, BodySignal.PII: body.pii,
+             BodySignal.FINANCIAL: body.financial, BodySignal.INTERNAL_IP: body.internal_ip}
+    return {signal for signal, present in flags.items() if present}
+
+
+def _spec_findings(result: HttpResult, endpoint: EndpointInfo, *, is_target_root: bool,
+                   context_class: ContextClass, confidence: float | None,
+                   signals: set[BodySignal], ep_index: int) -> list[ScoredFinding]:
+    """Run the spec-registry checks and score them with environmental metrics."""
+    out: list[ScoredFinding] = []
+    for raw in run_spec_checks(result, endpoint, is_target_root=is_target_root):
+        spec = spec_registry.spec_for(raw.check_id)
+        score = score_finding(raw, context_class, signals)
+        text = str(raw.evidence.get("text") or spec.title or raw.check_id)
+        out.append(ScoredFinding(
+            raw=RawFinding(
+                rule_id=raw.check_id, title=spec.title or raw.check_id,
+                category=spec.category, base_severity=score.severity_bucket,
+                cvss_vector=spec.base_cvss_vector, base_score=score.base_score,
+                evidence=text, impact=spec.description,
+                recommendation=spec.recommendation or "",
+                references=list(spec.references), limitation=spec.limitation,
+            ),
+            cvss_base_score=score.base_score,
+            context_multiplier=None,
+            response_bonus=None,
+            cawasma_final_score=score.final_score,
+            severity=score.severity_bucket,
+            context_class=context_class,
+            context_confidence=confidence,
+            endpoint_index=ep_index,
+            final_vector=score.vector,
+            score_reasons=list(score.score_reasons),
+            evidence={"text": text, **raw.evidence},
+            owasp_map=list(spec.owasp),
+            cwe_map=list(spec.cwe),
+        ))
+    return out
 
 
 async def _probe_endpoint(engine: HttpEngine, ep_url: str, result: HttpResult,
@@ -216,9 +283,16 @@ async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
     llm = get_llm_client()  # None unless LLM_ENABLED + API key configured
 
     await report("initializing", 2, "Preparing scan")
+    spec_registry.load_implementations()
 
     # Passive scans get an engine that can only send GET/HEAD.
     async with HttpEngine(allow_private=allow_private, passive_only=passive_only) as engine:
+        # A target that doesn't answer fails the scan instead of "completing"
+        # with findings computed from an empty response.
+        seed = await engine.fetch(target, method="GET")
+        if seed.status_code is None:
+            raise ScanError(f"Target unreachable: {seed.error or 'no response'}")
+
         # --- Discovery ---------------------------------------------------
         await report("crawling", 8, "Discovering endpoints")
         crawler = Crawler(engine, max_depth=crawl_depth, use_wordlist=use_wordlist)
@@ -277,6 +351,15 @@ async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
             ep_index = len(endpoints)
             endpoints.append(ep)
 
+            findings.extend(_spec_findings(
+                result,
+                EndpointInfo(url=de.url, path=de.path, method=de.method,
+                             status_code=result.status_code,
+                             content_type=result.content_type),
+                is_target_root=de.url.rstrip("/") == target.rstrip("/"),
+                context_class=cls.context_class, confidence=cls.confidence,
+                signals=body_signals(body_class), ep_index=ep_index,
+            ))
             for raw in run_checks(ctx):
                 bonus = body_class.bonus if raw.rule_id in _BONUS_RULES else 0.0
                 force = (raw.rule_id in _FORCE_CRIT_RULES) and body_class.credentials

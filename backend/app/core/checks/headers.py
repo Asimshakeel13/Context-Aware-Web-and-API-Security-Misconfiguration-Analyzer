@@ -1,4 +1,7 @@
-"""Header checks HDR-001..HDR-012 (spec section 13)."""
+"""Header checks HDR-002..HDR-012 (spec section 13).
+
+HDR-001 (missing HSTS) moved to the spec registry: ``checks/spec/hsts.py``.
+"""
 from __future__ import annotations
 
 import re
@@ -9,13 +12,6 @@ from app.db.models.enums import ContextClass
 
 def _missing(ctx: CheckContext, header: str) -> bool:
     return not ctx.has_header(header)
-
-
-@rule
-def hdr_001_hsts(ctx: CheckContext) -> RawFinding | None:
-    if _missing(ctx, "Strict-Transport-Security"):
-        return make("HDR-001", "Response has no Strict-Transport-Security header.")
-    return None
 
 
 @rule
