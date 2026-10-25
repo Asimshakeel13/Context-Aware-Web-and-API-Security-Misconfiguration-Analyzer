@@ -65,3 +65,11 @@ def test_legacy_requires_style_still_loads(tmp_path):
     [chain] = _load(tmp_path, groups=None, requires=["HDR-007", "API-004"], mandatory=[],
                     min_matches=2, composite_cvss_vector=None, composite_score=5.6).chains
     assert chain.member_ids == {"HDR-007", "API-004"} and chain.score == 5.6
+
+
+def test_shipped_chains_are_valid_and_beat_their_members():
+    chains = load_chains(CONFIG / "chains.yaml", known_check_ids=KNOWN, member_scores=SCORES)
+    assert [c.chain_id for c in chains.chains] == ["C001", "C002", "C003", "C004", "C005"]
+    for chain in chains.chains:
+        assert chain.composite_cvss_vector, chain.chain_id      # standards-valid score
+        assert chain.score > max(SCORES[i] for i in chain.member_ids if i in SCORES)
