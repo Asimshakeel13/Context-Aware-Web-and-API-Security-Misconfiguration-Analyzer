@@ -8,7 +8,7 @@ BACKEND := backend
 
 .DEFAULT_GOAL := help
 .PHONY: help up down test lint typecheck migrate seed reset logs install env \
-	validate-checks validate-config openapi eval-up eval-down eval-reset eval-collect
+	validate-checks validate-config openapi ml-smoke eval-up eval-down eval-reset eval-collect
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -43,6 +43,10 @@ validate-config: ## Validate checks, cvss_mapping and chains YAML; report catalo
 
 openapi: ## Regenerate docs/openapi.json and docs/examples/*.json from the code (commit them)
 	cd $(BACKEND) && "$(PYTHON)" scripts/export_openapi.py
+
+ml-smoke: ## Load all-MiniLM-L6-v2 and spaCy inside the api image (needs make up)
+	$(COMPOSE) exec -T api python -c "from sentence_transformers import SentenceTransformer as S; import spacy; \
+	print(S('all-MiniLM-L6-v2').encode('api login').shape, [t.text for t in spacy.load('en_core_web_sm')('Reset the admin password')][:2])"
 
 typecheck: ## mypy only
 	cd $(BACKEND) && "$(PYTHON)" -m mypy
