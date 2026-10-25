@@ -78,10 +78,13 @@ Optional AI keys are **never required** for the core scanner to run.
 ## Optional: NLP embedding layer
 
 ```bash
-pip install -r requirements-ml.txt     # ~200 MB, one time
+cd backend
+pip install -e ".[ml]"                  # one time; includes spaCy's en_core_web_sm
 ```
-Without it the classifier logs `embeddings unavailable, keyword-only` and still
-works.
+The Docker image installs the CPU-only stack from `requirements-ml.txt` and
+bakes both `en_core_web_sm` and `all-MiniLM-L6-v2` into its model cache during
+the image build. Without the optional dependencies the classifier logs
+`embeddings unavailable, keyword-only` and still works.
 
 ## Running the tests
 
