@@ -1,10 +1,20 @@
 # CAWASMA — Documentation
 
 **Context-Aware Web & API Security Misconfiguration Analyzer**
-Final Year Project — Javed Azam
+Final Year Project, BS Computer Science, FAST-NUCES Islamabad.
+Team: Atta Ur Rehman (backend & engine), Neelam (frontend), Asim (security, ML & evaluation).
 
-This folder contains the full technical documentation for CAWASMA. Each file is
-self-contained; start with the Overview and follow the order below.
+### Start here: plan and requirements
+
+The team's planning documents (SRS, development plans, project summaries,
+per-partner prompts) are in [project/](project/README.md). **The SRS is the
+reference** for what we are building; the documents below describe the system
+as implemented so far, which still differs from the SRS in places (notably the
+scoring formula).
+
+### Implementation documentation
+
+Each file is self-contained; start with the Overview and follow the order below.
 
 | # | Document | What it covers |
 |---|----------|----------------|
@@ -29,10 +39,19 @@ self-contained; start with the Overview and follow the order below.
 | [CVSS mapping contract](cvss-mapping-contract.md) | Asim | `classify` / `analyze` interfaces, `cvss_mapping.yaml`, `chains.yaml` |
 | [Schema](schema.md) · [DB decisions](db-decisions.md) | everyone | Tables, ER diagram, design decisions |
 
+### Security, ML and evaluation notes (Asim)
+
+| Document | What it covers |
+|----------|----------------|
+| [CVSS mapping](cvss-mapping.md) | Sensitivity class / body signal → CR, IR, AR rows with justifications and worked examples |
+| [Check specs review](check-specs-review.md) | Every check in `config/checks.yaml` by score, with debatable vectors |
+| [Labelling guide](labelling-guide.md) | Definitions and examples for the four sensitivity classes |
+| [Literature review](lit-review.md) | Notes on CVSS, OWASP and related scanners |
+
 ### Related files (project root)
 
-- **[README.md](../README.md)** — quick project summary and build status
-- **[HOW-TO-RUN.md](../HOW-TO-RUN.md)** — step-by-step run guide (Roman Urdu)
+- **[README.md](../README.md)**: quick project summary and quick start
+- **[CLAUDE.md](../CLAUDE.md)**: ownership, conventions and commands for the team
 
 ### At a glance
 
@@ -42,5 +61,5 @@ self-contained; start with the Overview and follow the order below.
 - **Contributions:** (1) NLP endpoint sensitivity classification, (2) attack-chain
   correlation, (3) response-body sensitivity classification
 - **Stack:** FastAPI · PostgreSQL · Redis · Celery · httpx · SQLAlchemy ·
-  sentence-transformers · WeasyPrint · React (Vite) frontend
-- **Tests:** 88 automated tests (unit + API + end-to-end)
+  sentence-transformers · WeasyPrint · Next.js frontend
+- **Tests:** 221 backend tests (unit, API, integration, database, eval tooling), plus the frontend's Vitest and Playwright suites
