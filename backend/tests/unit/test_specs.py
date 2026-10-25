@@ -150,3 +150,17 @@ def test_validator_cli_exit_codes(tmp_path, capsys):
     _write(tmp_path, _mutated(base_cvss_vector="CVSS:3.1/AV:N"))
     assert validate_specs.main(["checks", "--config-dir", str(tmp_path)]) == 1
     assert "FAIL" in capsys.readouterr().out
+
+
+# ------------------------------------- per-person plan, Contract 1 (gaps)
+
+def test_owasp_top10_2025_ids_are_accepted(tmp_path):
+    # The plan's example uses A02:2025, and the SRS cites OWASP Top 10 (2025).
+    spec = load_checks(_write(tmp_path, _mutated(owasp=["A02:2025", "API8:2023"])))
+    assert spec.checks[0].owasp == ["A02:2025", "API8:2023"]
+
+
+def test_severity_notes_is_an_optional_field(tmp_path):
+    spec = load_checks(_write(tmp_path, _mutated(severity_notes="raise with endpoint sensitivity")))
+    assert spec.checks[0].severity_notes == "raise with endpoint sensitivity"
+    assert load_checks(CONFIG / "checks.yaml").checks[0].severity_notes is None
