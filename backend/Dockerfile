@@ -53,7 +53,10 @@ RUN if [ "$INSTALL_ML" = "true" ]; then \
 
 COPY . .
 
+# /certs: mount point for the demo CA (docker-compose.demo.yml), writable by the
+# runtime user so a fresh named volume inherits that ownership.
 RUN useradd --create-home --uid 1000 cawasma \
+    && mkdir -p /certs && chown cawasma /certs \
     && chown -R cawasma /app /opt/hf-cache
 USER cawasma
 
