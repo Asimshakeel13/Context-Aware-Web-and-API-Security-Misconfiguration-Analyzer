@@ -46,7 +46,8 @@ class Settings(BaseSettings):
     # --- Frontend / CORS ---------------------------------------------------
     # Comma-separated list of allowed origins. Never "*": the scanner returns
     # sensitive assessment data, so origins are explicit.
-    FRONTEND_ORIGIN: str = "http://localhost:5173"
+    # 5173: the current Vite app; 3000: Neelam's Next.js app.
+    FRONTEND_ORIGIN: str = "http://localhost:5173,http://localhost:3000"
 
     # --- Scanner safety limits ---------------------------------------------
     REQUEST_TIMEOUT: float = 15.0            # seconds per HTTP request
@@ -65,6 +66,10 @@ class Settings(BaseSettings):
     # so the scanner can reach Asim's targets. Loopback, link-local and cloud
     # metadata stay blocked regardless (app/utils/security.py).
     ALLOWED_INTERNAL_HOSTS: str = ""
+    # Extra CA certificate(s) (PEM file) the engine trusts on top of the system
+    # store. Empty by default; set only for the demo / eval targets, which use
+    # self-signed certificates (docker-compose.demo.yml). Verification stays on.
+    SCAN_CA_BUNDLE: str = ""
 
     # Dispatch scans to Celery on creation. Disabled in tests (no broker).
     AUTO_DISPATCH_SCANS: bool = True
