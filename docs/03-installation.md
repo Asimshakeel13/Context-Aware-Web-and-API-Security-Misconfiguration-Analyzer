@@ -79,6 +79,9 @@ Optional AI keys are **never required** for the core scanner to run.
 
 ```bash
 cd backend
+# CPU-only torch first: without the extra index, sentence-transformers pulls the
+# multi-GB CUDA build of torch from PyPI.
+pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[ml]"                  # one time; includes spaCy's en_core_web_sm
 ```
 The Docker image installs the CPU-only stack from `requirements-ml.txt` and
