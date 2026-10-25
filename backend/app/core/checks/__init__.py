@@ -34,4 +34,9 @@ def run_checks(ctx: CheckContext) -> list[RawFinding]:
     return findings
 
 
-__all__ = ["CheckContext", "RawFinding", "REGISTRY", "run_checks"]
+# The spec-driven registry (Prompt 5) lives in app.core.checks.registry; its
+# RawFinding is a different, score-free type (check_id, endpoint, evidence).
+from app.core.checks.registry import register_check, run_spec_checks  # noqa: E402
+
+__all__ = ["CheckContext", "RawFinding", "REGISTRY", "register_check", "run_checks",
+           "run_spec_checks"]
