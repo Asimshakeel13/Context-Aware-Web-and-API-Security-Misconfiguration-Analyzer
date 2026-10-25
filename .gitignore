@@ -33,3 +33,6 @@ reports_output/
 .idea/
 .vscode/
 .DS_Store
+
+# Team planning documents (prompts, plans, specs) -- local reference only
+/pdf/

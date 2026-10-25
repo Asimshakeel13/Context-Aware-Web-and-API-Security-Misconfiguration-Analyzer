@@ -82,6 +82,11 @@ Evaluated against each in-scope response. The check fires when the rules match.
   op: missing
 ```
 
+Value operations (`equals` … `matches`) on a header that is **absent** are
+false: pair them with `op: missing` under `match: any` when absence should
+also fire. `matches` uses `re.search`, so anchor with `^…$` when you mean the
+whole value.
+
 **Status code**:
 
 ```yaml
@@ -89,7 +94,8 @@ Evaluated against each in-scope response. The check fires when the rules match.
   value: [200, 206]     # 100-599
 ```
 
-**Body** (the truncated, decoded response body):
+**Body** (the truncated, decoded response body; comparisons are
+case-sensitive, so use `(?i)` in a `matches` pattern when needed):
 
 ```yaml
 - body: matches         # contains | not_contains | matches

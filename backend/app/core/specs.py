@@ -28,7 +28,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.core.contracts import BodySignal, SensitivityClass
+from app.core.contracts import BodySignal, ResponseInfo, SensitivityClass
 from app.core.cvss import severity_for
 from app.core.cvss31 import CvssVectorError, base_score, parse_base_vector
 from app.db.models.enums import FindingCategory, Severity
@@ -85,12 +85,39 @@ class HeaderRule(_Strict):
             _compile(self.value or "")
         return self
 
+    def matches(self, response: ResponseInfo) -> bool:
+        wanted = self.header.lower()
+        actual = next((v for k, v in response.headers.items() if k.lower() == wanted), None)
+        if self.op == "missing":
+            return actual is None
+        if self.op == "present":
+            return actual is not None
+        if actual is None:  # value comparisons need the header to exist
+            return False
+        expected = self.value or ""
+        if self.op == "matches":
+            flags = 0 if self.case_sensitive else re.IGNORECASE
+            return re.search(expected, actual, flags) is not None
+        value = actual.strip()
+        if not self.case_sensitive:
+            value, expected = value.lower(), expected.lower()
+        if self.op == "equals":
+            return value == expected
+        if self.op == "not_equals":
+            return value != expected
+        if self.op == "contains":
+            return expected in value
+        return expected not in value  # not_contains
+
 
 class StatusRule(_Strict):
     """Condition on the response status code."""
 
     status: StatusOp
     value: list[Annotated[int, Field(ge=100, le=599)]] = Field(min_length=1)
+
+    def matches(self, response: ResponseInfo) -> bool:
+        return (response.status_code in self.value) == (self.status == "in")
 
 
 class BodyRule(_Strict):
@@ -104,6 +131,11 @@ class BodyRule(_Strict):
         if self.body == "matches":
             _compile(self.value)
         return self
+
+    def matches(self, response: ResponseInfo) -> bool:
+        if self.body == "matches":
+            return re.search(self.value, response.body) is not None
+        return (self.value in response.body) == (self.body == "contains")
 
 
 def _compile(pattern: str) -> None:
@@ -151,6 +183,11 @@ class HttpCondition(_Strict):
                         f"got {targets or 'none'}"
                     )
         return rules
+
+    def matches(self, response: ResponseInfo) -> bool:
+        """True when the check fires for ``response`` (all/any of the rules)."""
+        results = (rule.matches(response) for rule in self.rules)
+        return all(results) if self.match == "all" else any(results)
 
 
 class CheckSpec(_Strict):

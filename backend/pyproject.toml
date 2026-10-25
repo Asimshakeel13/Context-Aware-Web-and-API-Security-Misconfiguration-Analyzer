@@ -29,6 +29,10 @@ dependencies = [
     # Spec files in config/ (checks, CVSS mapping, chains)
     "PyYAML==6.0.2",
 ]
+# torch is not listed: it must come from PyTorch's CPU index, which pyproject
+# cannot express. Install it first (docs/03-installation.md); the Docker image
+# uses requirements-ml.txt, which sets the index.
+
 [project.optional-dependencies]
 dev = [
     "pytest==8.3.4",
@@ -45,6 +49,7 @@ ml = [
     "scikit-learn==1.6.0",
     "pandas==2.2.3",
     "matplotlib==3.9.3",
+    "cvss==3.6",               # eval/harness/mapping_demo.py
 ]
 
 [build-system]

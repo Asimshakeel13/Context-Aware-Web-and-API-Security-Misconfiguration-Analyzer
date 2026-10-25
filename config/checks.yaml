@@ -122,12 +122,10 @@ checks:
       rules:
         - header: X-Frame-Options
           op: missing
+        # One rule: two not_equals rules under "any" would fire for every value.
         - header: X-Frame-Options
-          op: not_equals
-          value: DENY
-        - header: X-Frame-Options
-          op: not_equals
-          value: SAMEORIGIN
+          op: matches
+          value: "^(?!\\s*(?:DENY|SAMEORIGIN)\\s*$)"
     owasp: [A05:2021]
     cwe: [CWE-1021]
     # Framing can expose or induce authenticated actions through a victim's browser.
