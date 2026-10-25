@@ -17,6 +17,7 @@
 torch==2.5.1
 sentence-transformers==3.3.1
 spacy==3.8.2
-# Evaluation-only packages (scikit-learn, pandas, matplotlib, cvss) live in the
-# "ml" extra of pyproject.toml, not here: this file is what the api/worker image
-# installs, and the scanner does not need them at runtime.
+# Evaluation-only packages (pandas, matplotlib, cvss; scikit-learn for the
+# eval scripts) live in the "ml" extra of pyproject.toml, not here: this file is
+# what the api/worker image installs. scikit-learn still ends up in the image
+# as a dependency of sentence-transformers.
