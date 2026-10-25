@@ -22,12 +22,13 @@ are the data and scoring references.
 5. Findings are correlated into attack chains (`core/chains.py`), which are stored
    as separate records with their own composite score.
 
-> **Current state vs goal:** `core/cvss.py` currently implements the simpler
-> formula in `docs/06-scoring-model.md`:
-> `min(10, base × context_multiplier + response_bonus)`. The environmental
-> metric recomputation in (4) is **not implemented yet**. When it is, keep the
-> official base score and the context-aware score in separate columns, as the
-> `findings` table does today, and update docs/06 to match.
+> **Current state vs goal:** (4) is implemented in `core/cvss.py`
+> (`environmental_score` / `score_finding`, using the `cvss` library and
+> `config/cvss_mapping.yaml`), but the scan pipeline still scores the legacy
+> catalog rules with the interim formula `min(10, base × context_multiplier +
+> response_bonus)` (docs/06). Switching the pipeline over (registry checks +
+> environmental score) is the next step; keep the official base score and the
+> context-aware score in separate columns, as the `findings` table does today.
 
 ## Team and file ownership
 

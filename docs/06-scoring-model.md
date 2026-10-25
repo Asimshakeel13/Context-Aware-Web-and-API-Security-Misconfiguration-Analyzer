@@ -8,7 +8,47 @@ finding and kept **strictly separate**:
 
 CAWASMA never claims the final number is an official CVSS score.
 
-## The formula
+## Target model: CVSS v3.1 environmental scoring
+
+Implemented in `backend/app/core/cvss.py` (`environmental_score`,
+`score_finding`), as the SRS requires. Not yet used by the scan pipeline: the
+legacy catalog rules still use the interim formula below until they move to
+`config/checks.yaml`.
+
+1. Start from the check's official CVSS v3.1 **base** vector (`checks.yaml`).
+2. Look up the endpoint's sensitivity class and the response's body signals in
+   `config/cvss_mapping.yaml` (Asim's file). Each gives Security Requirements
+   `CR`, `IR`, `AR`. Signals can only **raise** a requirement; per requirement
+   the highest value wins (`L < M < H`, `X` adds nothing).
+3. Append `/CR:../IR:../AR:..` to the base vector and compute the CVSS v3.1
+   **environmental** score with the `cvss` library. No modified base metrics
+   are used, so the result is a standard vector anyone can recompute in the
+   FIRST calculator.
+
+Example: `HDR-001` Missing HSTS, base vector
+`CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N`:
+
+| Sensitivity | Signals | Requirements | Base | Environmental |
+|-------------|---------|--------------|-----:|--------------:|
+| `LOW` | — | `CR:X/IR:X/AR:X` | 5.3 | **5.3** (Medium) |
+| `MEDIUM` | — | `CR:M/IR:M/AR:M` | 5.3 | **5.3** (Medium) |
+| `HIGH` | — | `CR:H/IR:M/AR:M` | 5.3 | **7.1** (High) |
+| `LOW` | `CREDENTIALS` | `CR:H/IR:H/AR:M` | 5.3 | **7.1** (High) |
+| `CRITICAL` | — | `CR:H/IR:H/AR:H` | 5.3 | **7.1** (High) |
+
+The result also carries `score_reasons`, e.g. `["sensitivity:HIGH",
+"signal:PII", "CR:H<-sensitivity:HIGH+signal:PII", "IR:M<-sensitivity:HIGH+signal:PII",
+"AR:M<-sensitivity:HIGH", "base:9.1", "environmental:9.8"]`, for the frontend
+drill-down. Severity uses the v3.1 ranges (None 0.0, Low 0.1–3.9, Medium
+4.0–6.9, High 7.0–8.9, Critical 9.0–10.0; "None" is stored as `INFO`).
+
+Guarantees, enforced by `backend/tests/unit/test_cvss_environmental.py` for
+every check vector, class and signal combination: the score matches an
+independent implementation of the FIRST equations, it never goes down as
+sensitivity rises or signals are added, and the vector re-parses to the same
+score.
+
+## Interim formula (legacy catalog rules)
 
 ```
 Final score = min( 10.0 , (CVSS base × Context multiplier) + Response bonus )
