@@ -29,6 +29,8 @@ dependencies = [
     "jinja2==3.1.4",
     # Spec files in config/ (checks, CVSS mapping, chains)
     "PyYAML==6.0.2",
+    # Context-aware scoring: CVSS v3.1 environmental scores (app/core/cvss.py)
+    "cvss==3.6",
 ]
 # torch is not listed: it must come from PyTorch's CPU index, which pyproject
 # cannot express. Install it first (docs/03-installation.md); the Docker image
@@ -52,7 +54,6 @@ ml = [
     "scikit-learn==1.6.0",
     "pandas==2.2.3",
     "matplotlib==3.9.3",
-    "cvss==3.6",               # eval/harness/mapping_demo.py
 ]
 
 [build-system]
@@ -105,5 +106,5 @@ no_implicit_optional = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "weasyprint.*", "sentence_transformers.*", "spacy.*", "bs4.*", "numpy.*"]
+module = ["celery.*", "weasyprint.*", "sentence_transformers.*", "spacy.*", "bs4.*", "numpy.*", "cvss.*"]
 ignore_missing_imports = true
