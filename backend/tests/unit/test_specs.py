@@ -46,7 +46,8 @@ def test_shipped_spec_files_are_valid():
     assert all(0.0 <= c.base_score <= 10.0 for c in checks.checks)
     mapping = load_cvss_mapping(CONFIG / "cvss_mapping.yaml")
     assert set(mapping.sensitivity_classes) == set(SensitivityClass)
-    load_chains(CONFIG / "chains.yaml", known_check_ids=CATALOG)
+    load_chains(CONFIG / "chains.yaml",
+                known_check_ids=set(CATALOG) | {c.check_id for c in checks.checks})
 
 
 # --------------------------------------------------------- invalid checks
@@ -106,15 +107,23 @@ def test_mapping_must_cover_every_class_and_signal(tmp_path):
         load_cvss_mapping(_write(tmp_path, data, "m.yaml"))
 
 
+# The original requires/mandatory/min_matches style (format 1.0) stays valid.
+LEGACY_CHAIN = {
+    "chain_id": "C005", "name": ".env Exposure -> Version Leak -> Full Compromise",
+    "description": "An exposed .env combined with version disclosure.",
+    "requires": ["INF-003", "HDR-007", "INF-004"], "mandatory": ["INF-003"],
+    "min_matches": 2, "composite_score": 9.8, "severity": "CRITICAL",
+}
+
+
 @pytest.mark.parametrize("changes, message", [
     ({"mandatory": ["INF-005"]}, "must also be in requires"),
     ({"min_matches": 5}, "min_matches"),
-    ({"severity": "HIGH"}, "does not match composite_score"),
+    ({"severity": "HIGH"}, "does not match the chain score"),
     ({"requires": ["INF-003", "XYZ-999"], "min_matches": 2}, "unknown check XYZ-999"),
 ])
 def test_invalid_chains_are_rejected(tmp_path, changes, message):
-    data = yaml.safe_load((CONFIG / "chains.yaml").read_text())
-    data["chains"][0].update(changes)
+    data = {"chains_version": 1, "chains": [{**LEGACY_CHAIN, **changes}]}
     with pytest.raises(SpecError) as err:
         load_chains(_write(tmp_path, data, "c.yaml"), known_check_ids=CATALOG)
     assert any(message in p for p in err.value.problems), err.value.problems

@@ -12,7 +12,7 @@ ignored. Load with :func:`load_checks`, :func:`load_cvss_mapping`,
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -35,7 +35,7 @@ from app.db.models.enums import FindingCategory, Severity
 
 CHECK_SPEC_VERSION = 1
 CVSS_MAPPING_VERSION = 1
-CHAINS_VERSION = 1
+CHAINS_VERSION = 1   # format 1.1 (groups, scope, context, vectors) is additive
 
 CheckId = Annotated[str, Field(pattern=r"^[A-Z]{3}-\d{3}$", examples=["HDR-001"])]
 # OWASP API Security Top 10 2023 (API1-API10) or OWASP Top 10 2021/2025 (A01-A10).
@@ -262,30 +262,88 @@ class CvssMapping(_Strict):
 
 # --------------------------------------------------------------- chains.yaml
 
+ChainScope = Literal["same_endpoint", "same_host", "any_endpoint"]
+
+
 class ChainSpec(_Strict):
+    """An attack-chain template (docs/cvss-mapping-contract.md, section 3).
+
+    Members are given either as ``groups`` (format 1.1: each group needs at
+    least one finding) or, in the original style, as ``requires`` /
+    ``mandatory`` / ``min_matches``. The score comes from
+    ``composite_cvss_vector`` when present, so it stays a valid CVSS v3.1 score.
+    """
+
     chain_id: Annotated[str, Field(pattern=r"^C\d{3}$", examples=["C005"])]
     name: str = Field(min_length=3, max_length=255)
     description: str = Field(min_length=10)
-    requires: list[CheckId] = Field(min_length=2)
+    # Format 1.1
+    groups: list[Annotated[list[CheckId], Field(min_length=1)]] | None = None
+    scope: ChainScope = "any_endpoint"
+    endpoint_sensitivity: list[SensitivityClass] = Field(default_factory=list)
+    body_signals: list[BodySignal] = Field(default_factory=list)
+    composite_cvss_vector: str | None = None
+    # Original style
+    requires: list[CheckId] | None = None
     mandatory: list[CheckId] = Field(default_factory=list)
-    min_matches: int = Field(ge=1)
-    composite_score: float = Field(ge=0.0, le=10.0)
+    min_matches: int | None = Field(None, ge=1)
+    composite_score: float | None = Field(None, ge=0.0, le=10.0)
     severity: Severity
+
+    @field_validator("composite_cvss_vector")
+    @classmethod
+    def _valid_vector(cls, vector: str | None) -> str | None:
+        if vector is not None:
+            try:
+                parse_base_vector(vector)
+            except CvssVectorError as exc:
+                raise ValueError(f"invalid CVSS v3.1 base vector: {exc}") from exc
+        return vector
 
     @model_validator(mode="after")
     def _consistent(self) -> ChainSpec:
-        _reject_duplicates(self.requires, "requires entry")
-        extra = sorted(set(self.mandatory) - set(self.requires))
-        if extra:
-            raise ValueError(f"mandatory checks must also be in requires: {extra}")
-        if not len(self.mandatory) <= self.min_matches <= len(self.requires):
-            raise ValueError("min_matches must be between len(mandatory) and len(requires)")
-        if severity_for(self.composite_score) != self.severity:
-            raise ValueError(
-                f"severity {self.severity.value} does not match composite_score "
-                f"{self.composite_score} ({severity_for(self.composite_score).value})"
-            )
+        if (self.groups is None) == (self.requires is None):
+            raise ValueError("use either groups or requires (with min_matches), not both")
+        if self.groups is not None:
+            if not self.groups:
+                raise ValueError("groups needs at least one group")
+            _reject_duplicates([c for g in self.groups for c in g], "groups entry")
+        else:
+            requires = self.requires or []
+            if len(requires) < 2:
+                raise ValueError("requires needs at least 2 checks")
+            _reject_duplicates(requires, "requires entry")
+            extra = sorted(set(self.mandatory) - set(requires))
+            if extra:
+                raise ValueError(f"mandatory checks must also be in requires: {extra}")
+            if self.min_matches is None or not (
+                len(self.mandatory) <= self.min_matches <= len(requires)
+            ):
+                raise ValueError("min_matches must be between len(mandatory) and len(requires)")
+        if self.composite_cvss_vector is None and self.composite_score is None:
+            raise ValueError("needs composite_cvss_vector or composite_score")
+        if self.composite_cvss_vector is not None and self.composite_score is not None:
+            derived = base_score(self.composite_cvss_vector)
+            if derived != self.composite_score:
+                raise ValueError(f"composite_score {self.composite_score} does not match its "
+                                 f"vector ({derived}); leave it out")
+        if severity_for(self.score) != self.severity:
+            raise ValueError(f"severity {self.severity.value} does not match the chain score "
+                             f"{self.score} ({severity_for(self.score).value})")
         return self
+
+    @property
+    def score(self) -> float:
+        """The chain's CVSS v3.1 score (from the vector when there is one)."""
+        if self.composite_cvss_vector is not None:
+            return base_score(self.composite_cvss_vector)
+        return float(self.composite_score or 0.0)
+
+    @property
+    def member_ids(self) -> set[str]:
+        if self.groups is not None:
+            return {c for g in self.groups for c in g}
+        return set(self.requires or [])
 
 
 class ChainsFile(_Strict):
@@ -335,15 +393,25 @@ def load_cvss_mapping(path: Path | str) -> CvssMapping:
     return result
 
 
-def load_chains(path: Path | str, known_check_ids: Iterable[str] = ()) -> ChainsFile:
-    """Load chains; with ``known_check_ids``, also reject unknown check references."""
+def load_chains(
+    path: Path | str, known_check_ids: Iterable[str] = (),
+    member_scores: Mapping[str, float] | None = None,
+) -> ChainsFile:
+    """Load chains. With ``known_check_ids``, reject unknown check references; with
+    ``member_scores`` (check id -> base score), require every chain to score above
+    each of its members (SRS objective O4: composite > any member)."""
     chains: ChainsFile = _load(path, ChainsFile)
     known = set(known_check_ids)
-    if known:
-        problems = [
-            f"chains.{c.chain_id}.requires: unknown check {rid}"
-            for c in chains.chains for rid in c.requires if rid not in known
-        ]
-        if problems:
-            raise SpecError(path, problems)
+    problems = []
+    for c in chains.chains:
+        problems += [f"chains.{c.chain_id}: unknown check {rid}"
+                     for rid in sorted(c.member_ids) if known and rid not in known]
+        scored = {rid: member_scores[rid] for rid in c.member_ids
+                  if member_scores and rid in member_scores}
+        if scored and c.score <= max(scored.values()):
+            top = max(scored, key=lambda k: scored[k])
+            problems.append(f"chains.{c.chain_id}: score {c.score} must exceed every member "
+                            f"(highest: {top} {scored[top]})")
+    if problems:
+        raise SpecError(path, problems)
     return chains
