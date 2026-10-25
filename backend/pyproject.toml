@@ -62,6 +62,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*", "scripts*"]
 
+[tool.setuptools.package-data]
+app = ["data/*.txt"]
+
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

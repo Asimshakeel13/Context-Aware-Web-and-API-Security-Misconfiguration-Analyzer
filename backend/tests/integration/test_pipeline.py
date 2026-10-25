@@ -85,3 +85,11 @@ async def test_pipeline_persists_full_graph(engine):
         assert any(e.body_signals.get("credentials") for e in ep_rows)
 
     await async_session().close()
+
+
+async def test_passive_pipeline_never_probes_the_wordlist():
+    # ScanRequest.passive_only: GET/HEAD only, so the wordlist (/.env) is skipped.
+    with mock_server() as base:
+        result = await run_pipeline(base, probe=False, allow_private=True, passive_only=True)
+    assert all(e.discovered_by.value != "WORDLIST" for e in result.endpoints)
+    assert not any(f.raw.rule_id == "INF-003" for f in result.findings)
