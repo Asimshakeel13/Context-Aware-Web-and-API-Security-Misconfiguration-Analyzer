@@ -9,11 +9,9 @@
 
 name: cawasma-eval
 
-x-cawasma-eval-environment: &cawasma-eval-environment
-  # Applied only by an evaluation-stack override when the CAWASMA API/worker
-  # is attached to cawasma-eval. The current backend does not yet consume this
-  # setting; Atta should wire it into the SSRF allow-list before eval scans.
-  ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+# CAWASMA's own ALLOWED_INTERNAL_HOSTS (juice-shop, dvwa, vampi, crapi-web)
+# belongs in a separate override for its api/worker when they join this
+# network for eval scans; the target containers below don't read it.
 
 services:
   juice-shop:
@@ -64,7 +62,6 @@ services:
     image: crapi/crapi-identity@sha256:327ab8561472891a5bc2145ba877de01e717674fa271834d22229ed4df8fc36d
     hostname: crapi-identity
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -84,7 +81,6 @@ services:
       SMTP_STARTTLS: "false"
       API_GATEWAY_URL: http://crapi-web
       ENABLE_SHELL_INJECTION: "false"
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -105,7 +101,6 @@ services:
     image: crapi/crapi-community@sha256:e5defa174e410bb615c14f257d52066d0534b87c4f4e25a93e4a12a0aea99323
     hostname: crapi-community
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -118,7 +113,6 @@ services:
       MONGO_DB_USER: admin
       MONGO_DB_PASSWORD: crapisecretpassword
       MONGO_DB_NAME: crapi
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -139,7 +133,6 @@ services:
     image: crapi/crapi-workshop@sha256:ab904182110a1ab11cef43cfd86c898c1139ebb08181ba7775dbcff8db2ea8cf
     hostname: crapi-workshop
     environment:
-      <<: *cawasma-eval-environment
       DB_NAME: crapi
       DB_USER: admin
       DB_PASSWORD: crapisecretpassword
@@ -154,7 +147,6 @@ services:
       MONGO_DB_NAME: crapi
       SECRET_KEY: cawasma-eval
       API_GATEWAY_URL: http://crapi-web
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
       TLS_ENABLED: "false"
     depends_on:
       crapi-postgres:
@@ -177,14 +169,12 @@ services:
     image: crapi/crapi-web@sha256:b14b5964af336d200449e28ffac9371e8929d4450f1e53e2787b4401adc31695
     hostname: crapi-web
     environment:
-      <<: *cawasma-eval-environment
       COMMUNITY_SERVICE: crapi-community:8087
       IDENTITY_SERVICE: crapi-identity:8080
       WORKSHOP_SERVICE: crapi-workshop:8000
       CHATBOT_SERVICE: crapi-community:8087
       MAILHOG_WEB_SERVICE: crapi-mailhog:8025
       TLS_ENABLED: "false"
-      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
     depends_on:
       crapi-community:
         condition: service_healthy
