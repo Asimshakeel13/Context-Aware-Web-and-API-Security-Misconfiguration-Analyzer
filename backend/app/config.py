@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_REQUESTS: int = 10        # httpx connection concurrency
     RATE_LIMIT_PROBE_COUNT: int = 15         # burst size for rate-limit check
     USER_AGENT: str = "CAWASMA-Scanner/1.0 (+defensive-security-research)"
+    REQUEST_RETRIES: int = 1                 # retries for transient network errors (GET/HEAD)
+    MAX_CRAWL_PAGES: int = 50                # pages the crawler fetches and parses
+
+    # Hostnames allowed to resolve to PRIVATE ranges (comma-separated). Empty by
+    # default; set only in the evaluation environment (docker-compose.eval-scan.yml)
+    # so the scanner can reach Asim's targets. Loopback, link-local and cloud
+    # metadata stay blocked regardless (app/utils/security.py).
+    ALLOWED_INTERNAL_HOSTS: str = ""
 
     # Dispatch scans to Celery on creation. Disabled in tests (no broker).
     AUTO_DISPATCH_SCANS: bool = True
@@ -80,6 +88,11 @@ class Settings(BaseSettings):
     LLM_MODEL: str = ""   # blank -> provider default
 
     # --- Derived helpers ---------------------------------------------------
+    @property
+    def allowed_internal_hosts(self) -> frozenset[str]:
+        return frozenset(h.strip().rstrip(".").lower()
+                         for h in self.ALLOWED_INTERNAL_HOSTS.split(",") if h.strip())
+
     @property
     def frontend_origins(self) -> list[str]:
         """CORS origins as a clean list."""
