@@ -75,9 +75,10 @@ def test_ml_modules_conform():
     assert check_conformance(sensitivity.classify, body_classifier.analyze) == []
 ```
 
-`backend/app/ml/interfaces.py` (the Sprint 0 stub with the old
-`classify(path, extra_expansions)` signature) is superseded by this contract.
-It's your file, so delete or replace it when you start.
+`backend/app/ml/sensitivity.py` and `backend/app/ml/body_classifier.py` already
+exist as stubs with these signatures. They delegate to the built-in
+classifiers and pass this check (`backend/tests/unit/test_ml_stubs.py`), so
+replace their bodies and keep the signatures.
 
 ## 2. `config/cvss_mapping.yaml`
 
