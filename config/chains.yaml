@@ -1,18 +1,86 @@
-# Attack-chain templates (owner: Asim).
-# Format: docs/cvss-mapping-contract.md   Validate with: make validate-config
+# Attack-chain templates (owner: Asim). Format 1.1: docs/cvss-mapping-contract.md
+# Trigger logic and evidence for the engine: docs/chain-templates.md
+# Validate with: make validate-config (checks ids, scores, composite > members)
 #
-# TEMPLATE: one example entry (the existing C005). The engine still uses
-# backend/app/core/chains.py until this file is complete and signed off.
+# DRAFT for Asim's review: every vector and justification below is a security
+# judgement to confirm before the engine switches from core/chains.py to this file.
+#
+# A chain fires when, inside one scope unit (endpoint / host / whole target),
+# every group has at least one finding and the context conditions hold. Its
+# score is the CVSS v3.1 base score of composite_cvss_vector (not a multiplier).
 chains_version: 1
 
 chains:
-  - chain_id: C005
-    name: .env Exposure -> Version Leak -> Full Compromise
+  - chain_id: C001
+    name: Session theft via XSS
     description: >-
-      An exposed .env file combined with server version disclosure can lead to
-      full compromise.
-    requires: [INF-003, HDR-007, INF-004]   # check_ids that can contribute
-    mandatory: [INF-003]                    # must all be present
-    min_matches: 2                          # of `requires`, including mandatory
-    composite_score: 9.8                    # documented template score, not computed CVSS
-    severity: CRITICAL                      # must match the score's bucket
+      A session cookie readable by scripts on a host that has no effective CSP:
+      any script injection on that host can read and exfiltrate the session.
+    groups:
+      - [CKI-001]                 # session cookie missing HttpOnly
+      - [HDR-002, HDR-013]        # CSP missing, or CSP with unsafe-inline/eval
+    scope: same_host              # the cookie and the injectable page share a host
+    # Account takeover through the victim's browser: scope changes (browser ->
+    # the user's session), full read/write as the user.
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:N   # 9.3
+    severity: CRITICAL
+
+  - chain_id: C002
+    name: Error disclosure plus version banner enables targeted exploitation
+    description: >-
+      Stack traces or debug pages reveal internals while banners name the exact
+      server or framework version, so an attacker can pick a matching exploit.
+    groups:
+      - [API-004, INF-007]        # stack trace, or verbose error / debug page
+      - [HDR-007, HDR-008]        # server, or framework version banner
+    scope: same_host
+    # Reconnaissance only: low impact on each axis, high attack complexity
+    # because a matching vulnerability must still exist.
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L   # 5.6
+    severity: MEDIUM
+
+  - chain_id: C003
+    name: Credentialed CORS read on a sensitive API
+    description: >-
+      A sensitive endpoint reflects arbitrary origins (or a weak origin) with
+      credentials allowed, so any site the victim visits can read and act on
+      their authenticated data.
+    groups:
+      - [COR-002, COR-003]        # reflected origin, or credentials with a weak origin
+    endpoint_sensitivity: [HIGH, CRITICAL]
+    scope: same_endpoint          # the CORS policy and the sensitive data are one response
+    # Victim visits an attacker page (UI:R); attacker reads and changes the
+    # victim's data through their session.
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N   # 8.1
+    severity: HIGH
+
+  - chain_id: C004
+    name: Credential interception on login
+    description: >-
+      The host neither redirects HTTP to HTTPS nor sends HSTS, and it serves an
+      authentication endpoint, so a network attacker can downgrade the login
+      and capture credentials.
+    groups:
+      - [HDR-001]                 # HSTS missing
+      - [TLS-005]                 # no HTTP-to-HTTPS redirect
+    endpoint_sensitivity: [HIGH, CRITICAL]   # login / token / admin surface on the host
+    scope: same_host
+    # Needs an on-path attacker (AC:H) and a victim logging in (UI:R); captured
+    # credentials give full access as that user.
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N   # 6.8
+    severity: MEDIUM
+
+  - chain_id: C005
+    name: Exposed configuration leaks live credentials
+    description: >-
+      A .env file or Git metadata is served and the response itself contains
+      credentials, so the secrets are directly usable against the application
+      and the services behind it.
+    groups:
+      - [INF-003, INF-004]        # .env exposed, or .git exposed
+    body_signals: [CREDENTIALS]
+    scope: same_endpoint          # the exposed file is the response with the secret
+    # Leaked database/cloud keys reach systems beyond the web app (S:C) with
+    # full impact; no authentication or user interaction needed.
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H   # 10.0
+    severity: CRITICAL
