@@ -1,4 +1,9 @@
-"""Collect bounded, same-origin endpoint paths from CAWASMA evaluation targets."""
+"""Collect bounded, same-origin endpoint paths from CAWASMA evaluation targets.
+
+The targets are only reachable inside the internal ``cawasma-eval`` network, so
+run this through ``make eval-collect`` (the ``collector`` service), or point it
+at another reachable host with ``--base-url NAME=URL``.
+"""
 from __future__ import annotations
 
 import argparse
@@ -16,10 +21,10 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "eval" / "labels" / "endpoints_raw.csv"
 TARGETS = {
-    "juice-shop": "http://127.0.0.1:3001",
-    "dvwa": "http://127.0.0.1:3002",
-    "vampi": "http://127.0.0.1:3003",
-    "crapi": "http://127.0.0.1:3004",
+    "juice-shop": "http://juice-shop:3000",
+    "dvwa": "http://dvwa:80",
+    "vampi": "http://vampi:5000",
+    "crapi": "http://crapi-web:80",
 }
 OPENAPI_PATHS = ("/openapi.json", "/swagger.json", "/api-docs", "/openapi.yaml")
 MAX_PAGES = 80
@@ -66,11 +71,11 @@ def add_openapi_paths(base: str, rows: set[tuple[str, str]]) -> None:
         body, content_type = result
         try:
             if candidate.endswith(".yaml") or "yaml" in content_type:
-                import yaml
+                import yaml  # optional: the collector container has no PyYAML
                 document = yaml.safe_load(body)
             else:
                 document = json.loads(body)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, ImportError):
             continue
         if isinstance(document, dict) and isinstance(document.get("paths"), dict):
             for path, operation_map in document["paths"].items():
