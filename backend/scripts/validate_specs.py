@@ -44,9 +44,11 @@ def main(argv: list[str] | None = None) -> int:
 
     ok = True
     known_ids = set(CATALOG)
+    scores: dict[str, float] = {}
     try:
         checks = load_checks(cfg / "checks.yaml")
         known_ids |= {c.check_id for c in checks.checks}
+        scores = {c.check_id: c.base_score for c in checks.checks}
         summary = ", ".join(f"{c.check_id} ({c.base_score})" for c in checks.checks)
         print(f"OK   {cfg / 'checks.yaml'}: {len(checks.checks)} checks: {summary}")
     except SpecError as exc:
@@ -61,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
             ok = False
             _report(exc)
         try:
-            chains = load_chains(cfg / "chains.yaml", known_ids)
+            chains = load_chains(cfg / "chains.yaml", known_ids, member_scores=scores)
             print(f"OK   {cfg / 'chains.yaml'}: {len(chains.chains)} chains")
         except SpecError as exc:
             ok = False
