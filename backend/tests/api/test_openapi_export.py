@@ -18,3 +18,13 @@ def test_openapi_declares_the_contract():
                  "/api/scans"):
         assert path in spec["paths"], path
     assert spec["paths"]["/api/scans/{scan_id}"]["get"]["deprecated"] is True
+
+
+def test_committed_example_json_matches_mock_mode():
+    # Contract 3: an example response JSON committed for the frontend to consume.
+    examples = export_openapi.render_examples()
+    assert {"results-done.json", "scans.json", "scan-request.json"} <= set(examples)
+    for name, content in examples.items():
+        committed = export_openapi.EXAMPLES_DIR / name
+        assert committed.exists() and committed.read_text() == content, (
+            f"docs/examples/{name} is stale: run `make openapi`")

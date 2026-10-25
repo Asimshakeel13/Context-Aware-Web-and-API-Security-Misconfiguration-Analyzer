@@ -1,0 +1,7 @@
+{
+  "crawl_depth": 2,
+  "use_wordlist": true,
+  "passive_only": false,
+  "url": "https://shop.example.com",
+  "authorisation_confirmed": true
+}

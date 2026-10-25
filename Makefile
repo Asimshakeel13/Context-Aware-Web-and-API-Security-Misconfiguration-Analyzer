@@ -41,7 +41,7 @@ validate-checks: ## Validate config/checks.yaml (specs + CVSS vectors)
 validate-config: ## Validate checks, cvss_mapping and chains YAML; report catalog score drift
 	cd $(BACKEND) && "$(PYTHON)" scripts/validate_specs.py all
 
-openapi: ## Regenerate docs/openapi.json from the code (commit the result)
+openapi: ## Regenerate docs/openapi.json and docs/examples/*.json from the code (commit them)
 	cd $(BACKEND) && "$(PYTHON)" scripts/export_openapi.py
 
 typecheck: ## mypy only
