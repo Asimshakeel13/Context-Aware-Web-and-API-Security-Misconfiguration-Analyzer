@@ -8,7 +8,7 @@ BACKEND := backend
 
 .DEFAULT_GOAL := help
 .PHONY: help up down test lint typecheck migrate seed reset logs install env \
-	validate-checks validate-config openapi eval-up eval-down eval-reset
+	validate-checks validate-config openapi eval-up eval-down eval-reset eval-collect
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -58,6 +58,9 @@ reset: ## Drop everything in the database, re-run migrations, seed (ALL DATA LOS
 
 eval-up: ## Start pinned isolated evaluation targets and wait for healthchecks
 	$(COMPOSE) -f docker-compose.eval.yml up -d --wait
+
+eval-collect: ## Collect endpoint paths from the running targets into eval/labels/endpoints_raw.csv
+	EVAL_UID=$$(id -u) EVAL_GID=$$(id -g) $(COMPOSE) -f docker-compose.eval.yml run --rm collector
 
 eval-down: ## Stop and remove evaluation target containers
 	$(COMPOSE) -f docker-compose.eval.yml down
