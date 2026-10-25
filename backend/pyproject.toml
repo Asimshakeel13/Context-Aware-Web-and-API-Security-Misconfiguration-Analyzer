@@ -45,6 +45,7 @@ ml = [
     "scikit-learn==1.6.0",
     "pandas==2.2.3",
     "matplotlib==3.9.3",
+    "cvss==3.6",               # eval/harness/mapping_demo.py
 ]
 
 [build-system]
