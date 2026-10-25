@@ -12,6 +12,7 @@ checked against it in CI.
 | Format | JSON, UTF-8. Timestamps are ISO 8601 in UTC (`2026-10-20T09:00:02Z`). Ids are UUIDs. |
 | Version header | every response carries `X-Contract-Version: 1.0.0` |
 | Interactive docs | `http://localhost:8000/docs` (routes tagged **contract v1**) |
+| Example responses | [`examples/`](examples/): one JSON file per shape (`results-done.json`, `results-running.json`, `results-failed.json`, `scan-status-queued.json`, `scans.json`, `scan-request.json`, `error.json`), identical to what mock mode returns |
 
 ## Building before the scanner works: mock mode
 
