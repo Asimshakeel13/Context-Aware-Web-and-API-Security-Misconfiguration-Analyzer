@@ -30,8 +30,8 @@ from app.api.schemas.contract import (
     SeverityCounts,
 )
 from app.core.checks.catalog import CATALOG
-from app.core.contracts import BodySignal, SensitivityClass
 from app.core.checks.registry import CHECKS, load_implementations, spec_for
+from app.core.contracts import BodySignal, SensitivityClass
 from app.core.cvss import compute_score, environmental_score
 from app.core.cvss31 import base_score
 

@@ -71,7 +71,8 @@ class Settings(BaseSettings):
     # self-signed certificates (docker-compose.demo.yml). Verification stays on.
     SCAN_CA_BUNDLE: str = ""
 
-    # Dispatch scans to Celery on creation. Disabled in tests (no broker).
+    # Start scans on creation: POST /api/scan runs them as a background task,
+    # the deprecated POST /api/scans enqueues them on Celery. Off in tests.
     AUTO_DISPATCH_SCANS: bool = True
     # Run scans in-process (no Celery/Redis needed). For simple deploys / demos.
     RUN_SCANS_INLINE: bool = False

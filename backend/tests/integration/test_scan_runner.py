@@ -60,3 +60,49 @@ async def test_scan_runner_completes(engine, monkeypatch):
             select(func.count()).select_from(Finding).where(Finding.scan_id == sid)
         )).scalar_one()
         assert n > 0
+
+
+async def _run_failing(engine, monkeypatch, exc):
+    async_session = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+    @contextlib.asynccontextmanager
+    async def fake_scope():
+        async with async_session() as session:
+            yield session
+
+    async def failing_pipeline(*a, **k):
+        raise exc
+
+    async def noop(self, *a, **k):
+        return None
+
+    monkeypatch.setattr(runner, "session_scope", fake_scope)
+    monkeypatch.setattr(runner, "run_pipeline", failing_pipeline)
+    monkeypatch.setattr(runner.RedisProgressPublisher, "publish", noop)
+    monkeypatch.setattr(runner.RedisProgressPublisher, "close", noop)
+    async with async_session() as s:
+        scan = Scan(target_url="https://unreachable.example", status=ScanStatus.QUEUED,
+                    progress=0)
+        s.add(scan)
+        await s.commit()
+        sid = scan.id
+    await runner.run_scan_async(sid)
+    async with async_session() as s:
+        return await s.get(Scan, sid)
+
+
+async def test_scan_error_message_is_shown_to_the_user(engine, monkeypatch):
+    from app.core.pipeline import ScanError
+
+    scan = await _run_failing(engine, monkeypatch,
+                              ScanError("Target unreachable: connection refused"))
+    assert scan.status == ScanStatus.FAILED
+    assert scan.error_message == "Target unreachable: connection refused"
+    assert scan.completed_at is not None
+
+
+async def test_internal_errors_are_not_shown_to_the_user(engine, monkeypatch):
+    scan = await _run_failing(engine, monkeypatch,
+                              RuntimeError("psycopg: password authentication failed"))
+    assert scan.status == ScanStatus.FAILED
+    assert "psycopg" not in scan.error_message and "Internal error" in scan.error_message

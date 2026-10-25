@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 
-from app.core.pipeline import run_pipeline
+from app.core.pipeline import ScanError, run_pipeline
 from app.db.models import Scan
 from app.db.models.enums import ScanStatus
 from app.db.session import session_scope
@@ -72,12 +72,15 @@ async def run_scan_async(scan_id: str | uuid.UUID, *, probe: bool = True) -> Non
             logger.info("scan %s completed: %s", sid, result.stats)
         except Exception as exc:  # noqa: BLE001 - record failure, never propagate
             logger.exception("scan %s failed", sid)
+            # Shown to the user: only ScanError messages are written for them.
+            message = (str(exc) if isinstance(exc, ScanError)
+                       else "Internal error while scanning; the server log has details.")
             await session.rollback()
             scan = (await session.execute(
                 select(Scan).where(Scan.id == sid))).scalar_one_or_none()
             if scan is not None:
                 scan.status = ScanStatus.FAILED
-                scan.error_message = str(exc)[:500]
+                scan.error_message = message[:500]
                 scan.completed_at = datetime.now(UTC)
                 await session.commit()
         finally:
