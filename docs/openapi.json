@@ -57,7 +57,7 @@
           "contract v1"
         ],
         "summary": "Start a scan",
-        "description": "Validate the target and queue a scan. Poll ``GET /api/results/{scan_id}``.",
+        "description": "Validate the target and queue a scan. Poll ``GET /api/results/{scan_id}``.\n\n``authorisation_confirmed`` must be ``true`` (the schema rejects anything\nelse with 422). The scan runs in this process as a background task for now\n(QUEUED -> RUNNING -> DONE | FAILED); the Celery worker takes over later.",
         "operationId": "start_scan_api_scan_post",
         "requestBody": {
           "content": {
