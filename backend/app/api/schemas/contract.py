@@ -23,7 +23,7 @@ from app.core.contracts import BodySignal, SensitivityClass
 from app.db.models.enums import FindingCategory, Severity
 from app.db.models.enums import ScanStatus as ScanState
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -108,6 +108,15 @@ class Finding(_Contract):
     base_score: float = Field(..., ge=0, le=10, description="Official CVSS v3.1 base score.")
     final_score: float = Field(..., ge=0, le=10,
                                description="CAWASMA context-aware score (not official CVSS).")
+    final_vector: str | None = Field(
+        None, examples=["CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N/CR:M/IR:M/AR:L"],
+        description="Since 1.1. The base vector plus the CR/IR/AR environmental requirements "
+                    "final_score was computed from (CVSS v3.1 environmental score). Null for "
+                    "findings still scored by the interim formula.")
+    score_reasons: list[str] = Field(
+        default_factory=list, examples=[["sensitivity:LOW", "no-context-change",
+                                         "base:5.9", "environmental:5.9"]],
+        description="Since 1.1. Why each requirement was set; empty when final_vector is null.")
     severity_bucket: Severity
     evidence: dict[str, Any] = Field(..., description="Redacted. Always has 'text'; other "
                                                       "keys depend on the check.")
