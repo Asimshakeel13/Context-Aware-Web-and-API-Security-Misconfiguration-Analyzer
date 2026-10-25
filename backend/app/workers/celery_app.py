@@ -7,6 +7,7 @@ actual scan task is registered in ``tasks.py`` and implemented in a later phase.
 from __future__ import annotations
 
 from celery import Celery
+from celery.signals import worker_init
 
 from app.config import settings
 
@@ -29,3 +30,12 @@ celery_app.conf.update(
     worker_max_tasks_per_child=50,
     result_expires=86_400,
 )
+
+
+@worker_init.connect
+def validate_checks_on_worker_start(**_: object) -> None:
+    """Same check-registry validation as the API: a worker with an implemented
+    check that has no spec in checks.yaml refuses to start."""
+    from app.core.checks.registry import validate_registry_at_startup
+
+    validate_registry_at_startup()
