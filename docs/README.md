@@ -39,6 +39,7 @@ Each file is self-contained; start with the Overview and follow the order below.
 | [CVSS mapping contract](cvss-mapping-contract.md) | Asim | `classify` / `analyze` interfaces, `cvss_mapping.yaml`, `chains.yaml` |
 | [Schema](schema.md) · [DB decisions](db-decisions.md) | everyone | Tables, ER diagram, design decisions |
 | [Engine safety](engine-security.md) | everyone | SSRF rules, DNS-rebinding defence, passive mode, eval allow-list |
+| [Adding a check](adding-a-check.md) | Atta, Asim | From a checks.yaml spec to a registered, tested check |
 
 ### Security, ML and evaluation notes (Asim)
 
