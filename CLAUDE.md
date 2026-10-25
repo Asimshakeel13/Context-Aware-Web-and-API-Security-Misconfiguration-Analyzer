@@ -24,11 +24,12 @@ are the data and scoring references.
 
 > **Current state vs goal:** (4) is implemented in `core/cvss.py`
 > (`environmental_score` / `score_finding`, using the `cvss` library and
-> `config/cvss_mapping.yaml`), but the scan pipeline still scores the legacy
-> catalog rules with the interim formula `min(10, base × context_multiplier +
-> response_bonus)` (docs/06). Switching the pipeline over (registry checks +
-> environmental score) is the next step; keep the official base score and the
-> context-aware score in separate columns, as the `findings` table does today.
+> `config/cvss_mapping.yaml`). The pipeline scores spec-registry checks
+> (`core/checks/spec/`, today HDR-001 and TLS-009) that way and stores
+> `final_vector` + `score_reasons`; the legacy `@rule` checks still use the
+> interim formula `min(10, base × context_multiplier + response_bonus)`
+> (docs/06) until each moves to the registry. Keep the official base score and
+> the context-aware score in separate columns, as the `findings` table does.
 
 ## Team and file ownership
 
@@ -74,10 +75,12 @@ Owned files:
 
 Notes:
 
-- Next up: replace the multiplier formula in `cvss.py` with CVSS v3.1
-  environmental-metric recomputation (see "Current state vs goal").
-- A target whose DNS fails currently "completes" with header findings; the
-  pipeline should mark it FAILED or unreachable instead.
+- Next up: move the remaining legacy `@rule` checks to the spec registry so
+  every finding gets an environmental score (see "Current state vs goal").
+- `POST /api/scan` runs scans as a FastAPI background task in the api process;
+  the Celery worker only serves the deprecated `POST /api/scans` for now.
+- An unreachable target raises `pipeline.ScanError` and the scan is FAILED; only
+  `ScanError` messages are shown to users.
 
 ## Neelam: frontend
 
@@ -229,6 +232,8 @@ make openapi   # regenerate docs/openapi.json after any API change (CI checks it
 - Faster image without the NLP stack: `INSTALL_ML=false make up`.
 - Frontend: `docker compose --profile frontend up -d --build`.
 - Eval targets: `docker compose -f docker-compose.eval.yml up -d` (isolated `cawasma-eval` network).
+- Vertical-slice demo: `docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait`,
+  then scan `https://demo-target:8443/` (README "Demo the vertical slice").
 
 CI (`.github/workflows/ci.yml`) has independent jobs: branch-name check (PRs),
 backend lint (ruff + mypy), and backend tests (Alembic upgrade/downgrade + pytest
