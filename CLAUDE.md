@@ -140,7 +140,14 @@ Conventions:
 
 ## Asim: specs, CVSS mapping, ML, evaluation
 
-<!-- Asim: catalog/CVSS mapping notes, ML models + data, eval targets and metrics. -->
+Asim owns:
+
+- `config/checks.yaml`
+- `config/cvss_mapping.yaml`
+- `config/chains.yaml`
+- `backend/app/ml/sensitivity.py`
+- `backend/app/ml/body_classifier.py`
+- `eval/` (targets, ground truth, labelled data, harness, results)
 
 ## Layout
 
