@@ -130,6 +130,8 @@ async def test_json_columns_round_trip(session):
     assert ep.body_signals["financial"] is True
     s = (await session.execute(select(Scan))).scalar_one()
     assert s.options == {"max_endpoints": 200}
+    tls = (await session.execute(select(TlsInfo))).scalar_one()
+    assert tls.weak_ciphers == [] and tls.issues == []   # data-model fields, default empty
 
 
 async def test_deleting_scan_cascades_to_every_child_table(session):

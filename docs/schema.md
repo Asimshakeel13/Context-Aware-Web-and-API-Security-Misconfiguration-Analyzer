@@ -2,8 +2,10 @@
 
 PostgreSQL 16 in Docker and CI; SQLite for the quick test runs. Defined by the
 SQLAlchemy models in `backend/app/db/models/` and created by the Alembic
-migration `backend/migrations/versions/0001_initial_schema.py`. Why things are
-the way they are: [db-decisions.md](db-decisions.md).
+migrations in `backend/migrations/versions/` (`0001` initial schema, `0002`
+TLS weak ciphers and issues). It implements the data model in
+[project/project-summary.md](project/project-summary.md); where a column name
+differs from that table, see [db-decisions.md](db-decisions.md) D17.
 
 Conventions for every table: UUID primary key `id`; `created_at` and
 `updated_at` (timestamptz, set by the database), omitted from the tables
@@ -76,8 +78,10 @@ findings (their `endpoint_id` becomes null).
 - **headers**: `endpoint_id`, `name`, `value` (redacted where sensitive).
 - **cookies**: `endpoint_id`, `name`, `value_length`, `http_only`, `secure`,
   `same_site` (`STRICT` / `LAX` / `NONE` / `UNSET`), `domain`, `path`.
-- **tls_info**: `scan_id`, `host`, `protocols_offered` (JSON list),
-  `negotiated_protocol`, `negotiated_cipher`, `cert_subject`, `cert_issuer`,
+- **tls_info** (one row per scanned host, not per endpoint; D18): `scan_id`, `host`,
+  `protocols_offered` (JSON list), `negotiated_protocol`, `negotiated_cipher`,
+  `weak_ciphers` (JSON list of weak suites seen), `issues` (JSON list of the TLS
+  check ids that fired, e.g. `["TLS-001"]`), `cert_subject`, `cert_issuer`,
   `cert_not_after`, `is_self_signed`, `hostname_matches`.
 - **attack_chains**: `scan_id`, `chain_code` (e.g. `C005`), `name`,
   `description`, `template_composite_score` (documented template value, not a
@@ -157,6 +161,8 @@ erDiagram
         uuid scan_id FK
         string host
         jsonb protocols_offered
+        jsonb weak_ciphers
+        jsonb issues "TLS check ids"
         timestamptz cert_not_after
     }
     ATTACK_CHAINS {

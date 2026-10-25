@@ -260,6 +260,8 @@ def _build_scan(
         cert_not_after=started + timedelta(days=64),
         is_self_signed=False,
         hostname_matches=True,
+        weak_ciphers=[],                            # TLS_AES_256_GCM_SHA384 is strong
+        issues=["TLS-001"] if legacy_tls else [],   # matches the finding below
     ))
     if legacy_tls:  # host-level finding: no endpoint
         findings.append(_finding(scan, None, "TLS-001",
