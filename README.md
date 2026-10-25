@@ -44,6 +44,7 @@ CAWASMA accepts an HTTPS target, discovers endpoints, checks for security miscon
 - [OWASP API Security Top 10](#-owasp-api-security-top-10)
 - [Research context](#-research-context)
 - [Project plan](#-project-plan)
+- [Demo the vertical slice](#️-demo-the-vertical-slice)
 - [Development checklist](#-development-checklist)
 
 ## 🎯 Why CAWASMA?
@@ -429,6 +430,59 @@ The project summary lists the following planned or produced design artifacts:
 - Three Sequence Diagrams, PlantUML
 
 Add links to the actual diagram files when their repository paths are confirmed.
+
+## ▶️ Demo the vertical slice
+
+One scan end to end: `POST /api/scan` → background scan → `GET /api/results/{id}`.
+The demo target (`backend/scripts/demo_target.py`) is a local HTTPS server
+with every security header **except HSTS**, so the scan reports exactly one
+finding: `HDR-001` *Missing HSTS*, MEDIUM, `final_score` 5.3, with a
+`final_vector` you can paste into any CVSS v3.1 calculator.
+
+**Test target URL: `https://demo-target:8443/`** (the name the api container
+resolves; it is not reachable from the host browser, and doesn't need to be).
+
+```bash
+# 1. Start the dev stack plus the demo target (api on :8000)
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait
+
+# 2. Start a scan (authorisation_confirmed must be true, otherwise 422)
+curl -s -i -X POST http://localhost:8000/api/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://demo-target:8443/", "authorisation_confirmed": true}'
+# -> 202, Location: /api/results/<scan_id>, body {"scan_id": "...", "status": "QUEUED", ...}
+
+# 3. Poll until DONE or FAILED (a few seconds)
+SCAN_ID=<scan_id from step 2>
+curl -s http://localhost:8000/api/results/$SCAN_ID | jq '.scan.status, .scan.progress'
+
+# 4. Results, ranked by final_score
+curl -s http://localhost:8000/api/results/$SCAN_ID \
+  | jq '.findings[] | {check_id, severity_bucket, base_score, final_score, cvss_vector, final_vector}'
+
+# 5. History, newest first
+curl -s 'http://localhost:8000/api/scans?limit=5' | jq '.items[] | {scan_id, url, status}'
+
+# Stop (keeps the database volume)
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down
+```
+
+**From the frontend:** run Neelam's app on http://localhost:3000 with
+`NEXT_PUBLIC_API_URL=http://localhost:8000`, enter `https://demo-target:8443/`
+and tick the authorisation box. CORS allows `http://localhost:3000` and
+`http://localhost:5173` by default (`FRONTEND_ORIGIN`; if your `.env` sets it,
+include both) and exposes the `Location` header.
+
+**Without a scanner:** `MOCK_API=true` makes the same routes answer with fixed
+examples in the same shape (see [`docs/api-contract.md`](docs/api-contract.md)).
+
+**As a test:** `cd backend && ../.venv/bin/python -m pytest tests/integration/test_vertical_slice.py -q`
+runs the same flow in-process against the demo target bound to this machine's
+private address.
+
+The demo override sets `ALLOWED_INTERNAL_HOSTS=demo-target` (lets that one name
+resolve to its private Docker address) and `SCAN_CA_BUNDLE` (trusts the
+target's throwaway CA; verification stays on). Neither belongs in `.env`.
 
 ## ✅ Development checklist
 
