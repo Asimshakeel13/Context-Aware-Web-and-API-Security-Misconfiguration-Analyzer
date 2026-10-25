@@ -48,25 +48,27 @@ def main() -> int:
         if (row["target"], row["method"], row["path"]) not in labels
     ]
     print(f"{len(labels)} labelled, {len(pending)} remaining")
-    for row in pending:
-        key = (row["target"], row["method"], row["path"])
-        print(f"\n{len(labels) + 1}: [{row['target']}] {row['method']} {row['path']}")
-        print("1 LOW  2 MEDIUM  3 HIGH  4 CRITICAL  s skip  q save and quit")
-        choice = input("> ").strip().lower()
-        if choice == "q":
-            break
-        if choice == "s":
-            continue
-        if choice not in CLASSES:
-            print("Invalid choice; this endpoint remains pending.")
-            continue
-        labels[key] = {
-            **row,
-            "sensitivity_class": CLASSES[choice],
-            "labeler": input("labeler (optional): ").strip(),
-            "notes": input("notes (optional): ").strip(),
-        }
-        write_labels(OUTPUT, labels)
+    try:
+        for row in pending:
+            key = (row["target"], row["method"], row["path"])
+            print(f"\n{len(labels) + 1}: [{row['target']}] {row['method']} {row['path']}")
+            print("1 LOW  2 MEDIUM  3 HIGH  4 CRITICAL  s skip  q save and quit")
+            choice = input("> ").strip().lower()
+            while choice not in CLASSES and choice not in {"s", "q"}:
+                choice = input("Press 1-4, s or q: ").strip().lower()
+            if choice == "q":
+                break
+            if choice == "s":
+                continue
+            labels[key] = {
+                **row,
+                "sensitivity_class": CLASSES[choice],
+                "labeler": input("labeler (optional): ").strip(),
+                "notes": input("notes (optional): ").strip(),
+            }
+            write_labels(OUTPUT, labels)
+    except (EOFError, KeyboardInterrupt):
+        print("\ninterrupted")  # labels so far are saved below
     write_labels(OUTPUT, labels)
     print(f"saved {len(labels)} labels to {OUTPUT}")
     return 0
