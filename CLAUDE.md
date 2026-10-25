@@ -158,7 +158,7 @@ backend/app/
   api/       routes/ + schemas/ (Pydantic). Never return ORM objects.
   db/        base (JSONType), session (engine, SessionDep), models/
   workers/   celery_app.py, tasks.py (cawasma.run_scan)
-  ml/        Protocols (interfaces.py) + stubs for Asim's classifiers
+  ml/        sensitivity.classify + body_classifier.analyze (Asim; stubs for now)
   services/  orchestration + persistence (scan_runner, result_service, ...)
   utils/     validators, security (SSRF), redaction, logging
 backend/migrations/   Alembic (async env; one initial migration 0001)
@@ -191,8 +191,9 @@ frontend/             web UI (Neelam)
 - The REST/report JSON keeps its pre-rename field names (`rule_id`,
   `cvss_base_score`, `cawasma_final_score`, `severity`, status `COMPLETED`) for
   the frontend; map in `api/schemas/` rather than renaming (docs/db-decisions.md D2-D3).
-- ML code plugs in through `app/ml/interfaces.py`; the engine must keep working
-  with the built-in classifiers when ML deps are absent.
+- ML code plugs in through `app/ml/sensitivity.py` and `app/ml/body_classifier.py`
+  with the types in `app/core/contracts.py`; the engine must keep working with the
+  built-in classifiers when ML deps are absent.
 - API errors use the envelope `{"success": false, "error": {"code", "message"}}`.
 - Lint: ruff (config in `backend/pyproject.toml`, line length 100). Types: mypy must pass.
   Use a narrow `# noqa: <code> - reason` rather than disabling rules broadly.

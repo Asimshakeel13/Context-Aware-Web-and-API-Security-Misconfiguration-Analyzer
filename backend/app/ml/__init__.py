@@ -1,12 +1,11 @@
 """ML layer (owner: Asim).
 
-Pluggable replacements for the two context classifiers the scoring model uses:
+The two context classifiers the scoring model uses, with the interfaces from
+docs/cvss-mapping-contract.md (types in :mod:`app.core.contracts`):
 
-* endpoint sensitivity (URL path -> CRITICAL/HIGH/MEDIUM/LOW), and
-* response-body signals (credentials / PII / financial / internal IP).
+* :func:`app.ml.sensitivity.classify` -- endpoint -> SensitivityClass
+* :func:`app.ml.body_classifier.analyze` -- response -> set[BodySignal]
 
-The engine currently uses the built-in implementations in
-:mod:`app.core.sensitivity` and :mod:`app.core.body_classifier`. Anything here
-must satisfy the Protocols in :mod:`app.ml.interfaces` so it can be swapped in
-without touching the engine or the CVSS code.
+Both are stubs that delegate to the built-in classifiers in ``app.core`` until
+Asim replaces them; ``tests/unit/test_ml_stubs.py`` keeps them conforming.
 """
