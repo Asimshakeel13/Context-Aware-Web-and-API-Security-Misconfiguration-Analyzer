@@ -21,6 +21,7 @@ dependencies = [
     "redis==5.2.1",
     # HTTP engine + parsing
     "httpx==0.28.1",
+    "h2==4.1.0",                # HTTP/2 for the scan engine (httpx http2=True)
     "beautifulsoup4==4.12.3",
     "cryptography==44.0.0",     # TLS certificate parsing
     # Reporting
@@ -38,6 +39,7 @@ dev = [
     "pytest==8.3.4",
     "pytest-asyncio==0.25.0",
     "aiosqlite==0.22.1",
+    "respx==0.22.0",           # httpx mocking for the engine/crawler tests
     "ruff==0.8.4",
     "mypy==1.14.1",
     "types-PyYAML==6.0.12.20240917",
@@ -59,6 +61,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*", "scripts*"]
+
+[tool.setuptools.package-data]
+app = ["data/*.txt"]
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]

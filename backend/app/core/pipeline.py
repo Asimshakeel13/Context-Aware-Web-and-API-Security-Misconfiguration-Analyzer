@@ -198,11 +198,14 @@ async def _check_http_redirect(engine: HttpEngine, host: str) -> bool | None:
 async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
                        *, probe: bool = True, allow_private: bool = False,
                        crawl_depth: int | None = None,
-                       use_wordlist: bool = True) -> ScanResult:
+                       use_wordlist: bool = True,
+                       passive_only: bool = False) -> ScanResult:
     """Execute the full scan and return a structured result.
 
-    ``probe=False`` is passive mode: no TLS probe, redirect check or active
-    endpoint probes. ``crawl_depth`` and ``use_wordlist`` bound discovery.
+    ``probe=False`` skips the TLS probe, redirect check and active endpoint
+    probes. ``passive_only`` (ScanRequest.passive_only) additionally makes the
+    engine refuse anything but GET/HEAD and skips the wordlist; the runner
+    sets both. ``crawl_depth`` and ``use_wordlist`` bound discovery.
 
     ``allow_private`` relaxes SSRF loopback/private-IP blocking and is intended
     for tests against a local mock server only.
@@ -214,7 +217,8 @@ async def run_pipeline(target: str, on_progress: ProgressFn | None = None,
 
     await report("initializing", 2, "Preparing scan")
 
-    async with HttpEngine(allow_private=allow_private) as engine:
+    # Passive scans get an engine that can only send GET/HEAD.
+    async with HttpEngine(allow_private=allow_private, passive_only=passive_only) as engine:
         # --- Discovery ---------------------------------------------------
         await report("crawling", 8, "Discovering endpoints")
         crawler = Crawler(engine, max_depth=crawl_depth, use_wordlist=use_wordlist)

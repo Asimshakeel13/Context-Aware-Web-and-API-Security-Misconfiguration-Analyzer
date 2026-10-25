@@ -1,0 +1,19 @@
+# Controlled wordlist for endpoint probing (crawler strategy 3).
+# Deliberately small and defensive: well-known sensitive paths a defender
+# wants flagged, NOT a brute-force list. One path per line; # starts a comment.
+# Skipped in passive mode and when ScanRequest.use_wordlist is false.
+/admin
+/api
+/api/v1
+/api/v2
+/api/users
+/login
+/.env
+/.git/HEAD
+/swagger-ui.html
+/openapi.json
+/graphql
+/robots.txt
+/backup.zip
+/config.json
+/actuator/health

@@ -1,0 +1,23 @@
+# Lets the CAWASMA api/worker scan the evaluation targets. Use together with
+# the main file, after `make eval-up`:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.eval-scan.yml up -d
+#
+# Joins the api and worker to the isolated cawasma-eval network and allows the
+# target hostnames to resolve to private addresses (docs/engine-security.md).
+# Never set ALLOWED_INTERNAL_HOSTS in the normal stack.
+
+services:
+  api:
+    environment:
+      ALLOWED_INTERNAL_HOSTS: juice-shop,dvwa,vampi,crapi-web
+    networks: [backend, eval]
+  worker:
+    environment:
+      ALLOWED_INTERNAL_HOSTS: juice-shop,dvwa,vampi,crapi-web
+    networks: [backend, eval]
+
+networks:
+  eval:
+    external: true
+    name: cawasma-eval
