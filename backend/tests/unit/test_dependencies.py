@@ -11,8 +11,9 @@ BACKEND = Path(__file__).resolve().parents[2]
 ROOT = BACKEND.parent
 PYPROJECT = tomllib.loads((BACKEND / "pyproject.toml").read_text())
 
-# Used only by eval/ scripts and notebooks; must not be baked into the api/worker image.
-EVAL_ONLY = {"scikit-learn", "pandas", "matplotlib", "cvss"}
+# Used only by eval/ scripts and notebooks; must not be baked into the api/worker image
+# via requirements-ml.txt (cvss is a runtime dependency in pyproject instead).
+EVAL_ONLY = {"scikit-learn", "pandas", "matplotlib"}
 # import name -> distribution name, where they differ
 DIST_FOR_IMPORT = {"yaml": "PyYAML", "sklearn": "scikit-learn", "bs4": "beautifulsoup4"}
 
