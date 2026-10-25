@@ -33,3 +33,10 @@ def test_collector_defaults_point_at_compose_services():
     targets = load_eval_script("labels/collect_endpoints.py").TARGETS
     for name, url in targets.items():
         assert urlparse(url).hostname in SERVICES, f"{name}: {url} is not an eval service"
+
+
+def test_targets_do_not_carry_cawasma_settings():
+    # ALLOWED_INTERNAL_HOSTS is a CAWASMA (scanner) setting; the targets ignore it.
+    offenders = [name for name, svc in SERVICES.items()
+                 if "ALLOWED_INTERNAL_HOSTS" in (svc.get("environment") or {})]
+    assert offenders == []
