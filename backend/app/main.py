@@ -20,6 +20,7 @@ from app.api.errors import ApiError
 from app.api.routes import contract, findings, health, reports, scans, ws
 from app.api.schemas.contract import CONTRACT_VERSION
 from app.config import settings
+from app.core.checks.registry import validate_registry_at_startup
 from app.utils.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -29,6 +30,8 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     """Startup/shutdown hooks."""
     configure_logging()
+    # Fail fast if a check is implemented without a spec in checks.yaml.
+    validate_registry_at_startup()
     logger.info(
         "starting cawasma backend env=%s debug=%s", settings.ENVIRONMENT, settings.DEBUG
     )
