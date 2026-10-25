@@ -30,8 +30,8 @@ async def test_pipeline_discovers_and_scores():
     # Secrets in response -> API-013, forced CRITICAL.
     secret = [f for f in result.findings if f.raw.rule_id == "API-013"]
     assert secret and secret[0].severity.value == "CRITICAL"
-    # Missing security headers fire somewhere.
-    assert any(f.raw.rule_id == "HDR-001" for f in result.findings)
+    # Missing security headers fire somewhere (HDR-001 HSTS needs HTTPS).
+    assert any(f.raw.rule_id == "HDR-002" for f in result.findings)
     # Stats populated.
     assert result.stats["findings"] > 0
     assert result.stats["endpoints"] == len(result.endpoints)

@@ -31,15 +31,25 @@ def test_catalog_has_58_rules_with_complete_metadata():
         assert meta.impact and meta.recommendation
 
 
-def test_registry_has_58_detection_functions():
-    assert len(REGISTRY) == 58
+def test_every_catalog_rule_has_exactly_one_implementation():
+    # A rule is either a legacy @rule function or has moved to the spec registry
+    # (docs/adding-a-check.md), never both: both would report it twice.
+    from app.core.checks.registry import CHECKS, load_implementations
+
+    load_implementations()
+    moved = set(CATALOG) & set(CHECKS)
+    assert "HDR-001" in moved
+    legacy_ids = {fn.__name__.split("_")[0].upper() + "-" + fn.__name__.split("_")[1]
+                  for fn in REGISTRY}
+    assert not legacy_ids & moved
+    assert len(REGISTRY) + len(moved) == 58
 
 
 def test_missing_headers_fire():
     ctx = _ctx(headers={}, body="<html></html>")
     ids = {f.rule_id for f in run_checks(ctx)}
     # No security headers at all -> the header checks should fire.
-    assert {"HDR-001", "HDR-002", "HDR-003", "HDR-004"} <= ids
+    assert {"HDR-002", "HDR-003", "HDR-004"} <= ids
 
 
 def test_full_headers_suppress_findings():

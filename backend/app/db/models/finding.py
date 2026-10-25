@@ -76,6 +76,11 @@ class Finding(Base, TimestampMixin):
     )
     response_bonus: Mapped[float | None] = mapped_column(Float, nullable=True)
     final_score: Mapped[float] = mapped_column(Float, nullable=False)
+    # CVSS v3.1 environmental scoring (spec-registry checks, core/cvss.py): the
+    # base vector plus CR/IR/AR, from which ``final_score`` recomputes, and why
+    # each requirement was set. Null for findings scored by the interim formula.
+    final_vector: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    score_reasons: Mapped[list[str] | None] = mapped_column(JSONType, nullable=True)
 
     # Bucket of ``final_score`` (may be forced to CRITICAL on credential exposure).
     severity_bucket: Mapped[Severity] = mapped_column(

@@ -187,6 +187,18 @@ Migration 0002 added the model's `weak_ciphers` and `issues` fields:
 weak), and `issues` the TLS check ids that fired. *Revisit* if one scan ever
 covers several hosts or ports: the rows already carry `host`.
 
+## D19. The environmental vector is stored next to the base vector
+
+Spec-registry checks are scored with CVSS v3.1 environmental metrics
+(`core/cvss.py`): the check's base vector plus `CR`/`IR`/`AR` from the
+endpoint's sensitivity class and body signals. `findings.cvss_vector` keeps
+the official **base** vector (its meaning in the API contract), and migration
+0003 adds `final_vector` (base + requirements) and `score_reasons`, so anyone
+can paste `final_vector` into a CVSS v3.1 calculator and get `final_score`.
+Both are nullable: legacy `@rule` findings still use the interim multiplier
+formula, which has no vector. *Revisit* once every rule has moved to the
+registry: then both can become required.
+
 ## Noticed while seeding (for Asim)
 
 The built-in sensitivity classifier puts `/.env` in the **LOW** class. The
