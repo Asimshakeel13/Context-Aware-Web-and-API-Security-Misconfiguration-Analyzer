@@ -3,27 +3,27 @@ base_url: http://127.0.0.1:3004
 status: starter-unverified
 known_issues:
   - endpoint: /identity/api/auth/login
-    check_id: API-002
+    check_id: API-001
     expected: present
     source: "official docs: https://github.com/OWASP/crAPI"
     notes: "Starter hypothesis for authentication endpoint throttling; missing headers do not prove missing server-side rate limiting."
     verification: unverified
   - endpoint: /community/api/v2/community/posts/recent
-    check_id: API-001
+    check_id: API-003
     expected: present
     source: "official docs: https://github.com/OWASP/crAPI"
     notes: "Starter hypothesis for an intentionally vulnerable community API; verify authentication and sensitivity."
     verification: unverified
   - endpoint: /identity/api/v2/user
-    check_id: API-001
+    check_id: API-003
     expected: present
     source: "official docs: https://github.com/OWASP/crAPI"
     notes: "Starter hypothesis for user data access; verify only with the lab's documented safe setup."
     verification: unverified
 must_not_fire:
-  - INF-005
-  - COR-001
+  - INF-003/INF-004/INF-005
+  - COR-003
   - COR-002
-  - CKI-001
   - CKI-002
+  - CKI-001
   - CKI-003
