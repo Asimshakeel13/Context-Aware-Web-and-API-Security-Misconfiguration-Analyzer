@@ -45,6 +45,7 @@ Each file is self-contained; start with the Overview and follow the order below.
 |----------|----------------|
 | [CVSS mapping](cvss-mapping.md) | Sensitivity class / body signal → CR, IR, AR rows with justifications and worked examples |
 | [Check specs review](check-specs-review.md) | Every check in `config/checks.yaml` by score, with debatable vectors |
+| [Chain templates](chain-templates.md) | The five attack chains: trigger logic, evidence, weak spots |
 | [Labelling guide](labelling-guide.md) | Definitions and examples for the four sensitivity classes |
 | [Literature review](lit-review.md) | Notes on CVSS, OWASP and related scanners |
 
