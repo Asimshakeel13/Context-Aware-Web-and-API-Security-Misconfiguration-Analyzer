@@ -180,3 +180,15 @@ async def test_connection_is_pinned_to_the_validated_ip(monkeypatch):
     finally:
         PUBLIC["site.example"] = saved
     assert inner.connected_to == ["93.184.215.14"]     # no second connection
+
+
+async def test_http2_libraries_do_not_flood_the_logs():
+    import logging
+
+    from app.utils import logging as app_logging
+
+    app_logging._CONFIGURED = False
+    app_logging.configure_logging()
+    # hpack/h2 log every header frame at DEBUG once HTTP/2 is on.
+    assert logging.getLogger("hpack").level == logging.WARNING
+    assert logging.getLogger("h2").level == logging.WARNING

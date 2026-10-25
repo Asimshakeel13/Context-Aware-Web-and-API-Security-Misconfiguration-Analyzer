@@ -36,7 +36,7 @@ def configure_logging() -> None:
     root.setLevel(_LEVEL)
 
     # Tame noisy third-party loggers.
-    for noisy in ("httpx", "httpcore", "urllib3", "asyncio"):
+    for noisy in ("httpx", "httpcore", "urllib3", "asyncio", "hpack", "h2"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     _CONFIGURED = True
