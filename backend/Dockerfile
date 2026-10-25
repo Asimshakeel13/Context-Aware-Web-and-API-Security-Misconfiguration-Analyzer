@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN mkdir -p /opt/hf-cache
 
 # Install dependencies from pyproject.toml before copying the source, against a
 # placeholder package, so code edits don't invalidate this layer.
@@ -52,7 +53,8 @@ RUN if [ "$INSTALL_ML" = "true" ]; then \
 
 COPY . .
 
-RUN useradd --create-home --uid 1000 cawasma && chown -R cawasma /app
+RUN useradd --create-home --uid 1000 cawasma \
+    && chown -R cawasma /app /opt/hf-cache
 USER cawasma
 
 EXPOSE 8000
