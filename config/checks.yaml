@@ -3,7 +3,7 @@
 spec_version: 1
 
 checks:
-  - check_id: TRN-001
+  - check_id: TLS-005
     category: TLS
     title: HTTP Does Not Redirect to HTTPS
     description: >-
@@ -25,8 +25,8 @@ checks:
       The engine must run this condition against the explicitly issued HTTP
       probe, before following redirects; it must not evaluate an HTTPS response.
 
-  - check_id: HST-001
-    category: TLS
+  - check_id: HDR-001
+    category: HEADERS
     title: Missing HSTS
     description: >-
       The HTTPS response omits Strict-Transport-Security, allowing browsers to
@@ -44,7 +44,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N
     recommendation: "Send Strict-Transport-Security with a long max-age on HTTPS responses."
 
-  - check_id: HST-002
+  - check_id: TLS-009
     category: TLS
     title: Weak HSTS Policy
     description: >-
@@ -67,7 +67,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
     recommendation: "Use max-age=31536000 and includeSubDomains where appropriate."
 
-  - check_id: HDR-001
+  - check_id: HDR-002
     category: HEADERS
     title: Missing Content-Security-Policy
     description: >-
@@ -86,7 +86,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
     recommendation: "Define a restrictive Content-Security-Policy appropriate to the application."
 
-  - check_id: HDR-002
+  - check_id: HDR-013
     category: HEADERS
     title: Unsafe Content-Security-Policy
     description: >-
@@ -132,7 +132,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
     recommendation: "Send X-Frame-Options: DENY or SAMEORIGIN and use CSP frame-ancestors."
 
-  - check_id: HDR-004
+  - check_id: HDR-014
     category: HEADERS
     title: Missing frame-ancestors Directive
     description: >-
@@ -154,7 +154,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
     recommendation: "Define CSP frame-ancestors for every browser-rendered sensitive response."
 
-  - check_id: HDR-005
+  - check_id: HDR-004
     category: HEADERS
     title: Missing or Weak X-Content-Type-Options
     description: >-
@@ -176,7 +176,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
     recommendation: "Set X-Content-Type-Options: nosniff."
 
-  - check_id: HDR-006
+  - check_id: HDR-005
     category: HEADERS
     title: Missing or Weak Referrer-Policy
     description: >-
@@ -198,7 +198,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
     recommendation: "Prefer strict-origin-when-cross-origin or a more restrictive policy."
 
-  - check_id: HDR-007
+  - check_id: HDR-006
     category: HEADERS
     title: Missing Permissions-Policy
     description: >-
@@ -217,7 +217,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N
     recommendation: "Set Permissions-Policy and disable features that the application does not need."
 
-  - check_id: CKI-001
+  - check_id: CKI-002
     category: COOKIES
     title: Session Cookie Missing Secure
     description: >-
@@ -237,7 +237,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:L/A:N
     recommendation: "Set Secure on every session and authentication cookie."
 
-  - check_id: CKI-002
+  - check_id: CKI-001
     category: COOKIES
     title: Session Cookie Missing HttpOnly
     description: >-
@@ -277,7 +277,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:H/A:N
     recommendation: "Set SameSite=Lax or Strict unless a documented cross-site flow requires None."
 
-  - check_id: COR-001
+  - check_id: COR-003
     category: CORS
     title: CORS Wildcard With Credentials
     description: >-
@@ -322,8 +322,8 @@ checks:
       The engine must send a unique untrusted Origin and compare the response
       value with that exact Origin; presence alone is not evidence of reflection.
 
-  - check_id: INF-001
-    category: INFO_DISCLOSURE
+  - check_id: HDR-007
+    category: HEADERS
     title: Server Version Banner
     description: >-
       The Server response header discloses a product name and version, giving
@@ -342,8 +342,8 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
     recommendation: "Remove product and version details from the Server header."
 
-  - check_id: INF-002
-    category: INFO_DISCLOSURE
+  - check_id: HDR-008
+    category: HEADERS
     title: Framework Version Banner
     description: >-
       The response discloses a framework or runtime through X-Powered-By or a
@@ -366,8 +366,8 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
     recommendation: "Disable framework and runtime version headers in production."
 
-  - check_id: INF-003
-    category: INFO_DISCLOSURE
+  - check_id: API-004
+    category: REST_API
     title: Stack Trace Disclosure
     description: >-
       The response body contains a recognizable application stack trace,
@@ -378,14 +378,14 @@ checks:
       match: all
       rules:
         - body: matches
-          value: "(?is)(?:Traceback \\(most recent call last\\)|at [A-Za-z0-9_.$]+\\([^\\n]+\\)|System\\.[A-Za-z]+Exception|\\.java:\\d+)"
+          value: "(?is)(?:Traceback \\(most recent call last\\)|(?:\\n\\s+at [^\\n]*\\(?[^\\s()]+:\\d+(?::\\d+)?\\)?){2,}|System\\.[A-Za-z]+Exception|\\.java:\\d+)"
     owasp: [A05:2021]
     cwe: [CWE-209]
     # Trace data can disclose internals and sometimes secrets, primarily affecting confidentiality.
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
     recommendation: "Return generic production errors and log stack traces privately."
 
-  - check_id: INF-004
+  - check_id: INF-002
     category: INFO_DISCLOSURE
     title: Directory Listing
     description: >-
@@ -404,19 +404,20 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
     recommendation: "Disable directory indexing and deny access to deployment artifacts."
 
-  - check_id: INF-005
+  - check_id: INF-003
     category: INFO_DISCLOSURE
-    title: Exposed Configuration or Backup Content
+    title: .env file exposed
     description: >-
       The response body contains markers associated with .env, Git metadata,
       private keys, or backup files, indicating sensitive deployment content.
+    # Split from the combined exposure check: matches three or more KEY=value lines, as in a .env file.
     http_condition:
       method: GET
       scope: every_endpoint
       match: all
       rules:
         - body: matches
-          value: "(?im)(?:^|[</\\s])(?:\\.env(?:\\.|\\s|$)|\\.git(?:/|\\\\)|(?:backup|dump|database)\\.(?:zip|tar|gz|sql)|-----BEGIN (?:RSA|OPENSSH|EC|PGP) PRIVATE KEY-----|^[A-Z][A-Z0-9_]{2,}=)"
+          value: "(?m)(?:^[A-Z][A-Z0-9_]{2,}=[^\\n]*\\n?){3,}"
     owasp: [A05:2021]
     cwe: [CWE-538]
     # Exposed configuration or keys can directly disclose credentials and enable compromise.
@@ -426,7 +427,53 @@ checks:
       The engine should apply this to responses from discovered artifact-like
       paths and redact matched evidence before storage or reporting.
 
-  - check_id: INF-006
+  - check_id: INF-004
+    category: INFO_DISCLOSURE
+    title: .git repository exposed
+    description: >-
+      The response body contains markers associated with .env, Git metadata,
+      private keys, or backup files, indicating sensitive deployment content.
+    # Split from the combined exposure check: matches Git metadata (HEAD ref, [core] config, .git/ paths).
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - body: matches
+          value: "(?m)(?:^\\[core\\]\\s*$|^ref: refs/heads/|\\.git(?:/|\\\\)(?:HEAD|config|index))"
+    owasp: [A05:2021]
+    cwe: [CWE-538]
+    # Exposed configuration or keys can directly disclose credentials and enable compromise.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+    recommendation: "Remove exposed artifacts, rotate disclosed secrets, and deny access at the server."
+    limitation: >-
+      The engine should apply this to responses from discovered artifact-like
+      paths and redact matched evidence before storage or reporting.
+
+  - check_id: INF-005
+    category: INFO_DISCLOSURE
+    title: Backup / archive file exposed
+    description: >-
+      The response body contains markers associated with .env, Git metadata,
+      private keys, or backup files, indicating sensitive deployment content.
+    # Split from the combined exposure check: matches backup/dump archive names or a private key block.
+    http_condition:
+      method: GET
+      scope: every_endpoint
+      match: all
+      rules:
+        - body: matches
+          value: "(?im)(?:(?:backup|dump|database)\\.(?:zip|tar|gz|sql)\\b|-----BEGIN (?:RSA|OPENSSH|EC|PGP) PRIVATE KEY-----)"
+    owasp: [A05:2021]
+    cwe: [CWE-538]
+    # Exposed configuration or keys can directly disclose credentials and enable compromise.
+    base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+    recommendation: "Remove exposed artifacts, rotate disclosed secrets, and deny access at the server."
+    limitation: >-
+      The engine should apply this to responses from discovered artifact-like
+      paths and redact matched evidence before storage or reporting.
+
+  - check_id: INF-007
     category: INFO_DISCLOSURE
     title: Verbose Error Response
     description: >-
@@ -447,7 +494,7 @@ checks:
     base_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
     recommendation: "Disable debug output and return a generic error envelope in production."
 
-  - check_id: API-001
+  - check_id: API-003
     category: REST_API
     title: Sensitive-Looking Endpoint Accessible Without Authentication
     description: >-
@@ -469,8 +516,8 @@ checks:
       The engine must run this only on paths classified as sensitive and with
       authentication explicitly absent; a successful response alone is not proof.
 
-  - check_id: API-002
-    category: AUTH
+  - check_id: API-001
+    category: REST_API
     title: Authentication Endpoint Missing Rate-Limit Headers
     description: >-
       An authentication-related response omits both standard rate-limit
