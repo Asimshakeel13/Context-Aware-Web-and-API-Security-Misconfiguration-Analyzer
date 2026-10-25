@@ -8,8 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from app.core.checks.base import CheckContext, RawFinding, make, rule
-
-_WEAK_CIPHER_TOKENS = ("RC4", "3DES", "DES", "NULL", "EXPORT", "MD5")
+from app.core.tls import weak_ciphers
 
 
 @rule
@@ -24,12 +23,9 @@ def tls_001_legacy(ctx: CheckContext) -> RawFinding | None:
 
 @rule
 def tls_002_weak_cipher(ctx: CheckContext) -> RawFinding | None:
-    if not ctx.tls or not ctx.tls.negotiated_cipher:
+    if not ctx.tls or not weak_ciphers(ctx.tls):
         return None
-    cipher = ctx.tls.negotiated_cipher.upper()
-    if any(tok in cipher for tok in _WEAK_CIPHER_TOKENS):
-        return make("TLS-002", f"Weak cipher negotiated: {ctx.tls.negotiated_cipher}.")
-    return None
+    return make("TLS-002", f"Weak cipher negotiated: {ctx.tls.negotiated_cipher}.")
 
 
 @rule

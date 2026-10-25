@@ -41,6 +41,18 @@ class TlsProbe:
     error: str | None = None
 
 
+# Cipher-name fragments that mark a cipher suite as weak (check TLS-002).
+WEAK_CIPHER_TOKENS = ("RC4", "3DES", "DES", "NULL", "EXPORT", "MD5")
+
+
+def weak_ciphers(probe: TlsProbe) -> list[str]:
+    """Weak cipher suites observed for the host (today: the negotiated one, if weak)."""
+    cipher = probe.negotiated_cipher
+    if cipher and any(tok in cipher.upper() for tok in WEAK_CIPHER_TOKENS):
+        return [cipher]
+    return []
+
+
 def _parse_cert(der: bytes, host: str, probe: TlsProbe) -> None:
     """Parse a DER certificate for subject/issuer/expiry/self-signed/hostname."""
     try:

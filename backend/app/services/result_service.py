@@ -8,7 +8,9 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.body_classifier import BodyClassification
+from app.core.checks.base import RawFinding
 from app.core.pipeline import ScanResult
+from app.core.tls import weak_ciphers
 from app.db.models import (
     AiInsight,
     AttackChain,
@@ -19,6 +21,7 @@ from app.db.models import (
     Scan,
     TlsInfo,
 )
+from app.db.models.enums import FindingCategory
 from app.services.insights import generate_insight
 from app.utils.logging import get_logger
 
@@ -47,6 +50,11 @@ def body_signals_json(body: BodyClassification | None) -> dict[str, Any]:
         "bonus": body.bonus,
         "reasons": list(body.reasons),
     }
+
+
+def tls_issues(findings: list[RawFinding]) -> list[str]:
+    """``tls_info.issues``: the TLS check ids that fired for the host."""
+    return sorted({f.rule_id for f in findings if f.category is FindingCategory.TLS})
 
 
 async def persist_result(session, scan: Scan, result: ScanResult) -> None:
@@ -120,6 +128,8 @@ async def persist_result(session, scan: Scan, result: ScanResult) -> None:
         session.add(TlsInfo(
             scan_id=scan.id, host=t.host,
             protocols_offered=t.protocols_offered,
+            weak_ciphers=weak_ciphers(t),
+            issues=tls_issues([sf.raw for sf in result.findings]),
             negotiated_protocol=t.negotiated_protocol,
             negotiated_cipher=t.negotiated_cipher,
             cert_subject=t.cert_subject, cert_issuer=t.cert_issuer,

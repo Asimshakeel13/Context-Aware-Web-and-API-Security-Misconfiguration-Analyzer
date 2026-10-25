@@ -11,7 +11,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import scripts.seed as seed_mod
 from app.config import settings
-from app.db.models import AttackChain, Base, Endpoint, Feedback, Finding, Scan, Severity
+from app.db.models import (
+    AttackChain,
+    Base,
+    Endpoint,
+    Feedback,
+    Finding,
+    Scan,
+    Severity,
+    TlsInfo,
+)
 from scripts import reset
 
 
@@ -55,6 +64,9 @@ async def test_seed_matches_the_documented_sample(seeded_scope):
         await s.refresh(chain, ["findings"])
         assert chain.chain_code == "C005"
         assert {f.check_id for f in chain.findings} == {"INF-003", "HDR-007"}
+
+        issues = {tuple(t.issues) for t in (await s.execute(select(TlsInfo))).scalars()}
+        assert issues == {(), ("TLS-001",)}   # only the rescan offered TLS 1.1
 
         env = (await s.execute(select(Finding).where(Finding.check_id == "INF-003"))).scalar_one()
         assert env.severity_bucket is Severity.CRITICAL
