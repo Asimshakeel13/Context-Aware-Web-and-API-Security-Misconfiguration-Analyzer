@@ -1,27 +1,255 @@
-# CAWASMA evaluation targets (owner: Asim) -- placeholder.
+# CAWASMA evaluation targets (owner: Asim).
 #
-# Deliberately misconfigured apps used to measure detection and scoring
-# accuracy. They run as their own compose project on an isolated network so
-# they are never exposed alongside the dev stack:
+# The images are pinned for reproducibility. Host ports bind to loopback only;
+# target-to-target and outbound network access is unavailable on the internal
+# evaluation network.
 #
-#   docker compose -f docker-compose.eval.yml up -d
-#
-# Notes for adding targets:
-# * Do not publish ports on 0.0.0.0; bind to 127.0.0.1 if host access is needed.
-# * The scanner is HTTPS-only and its SSRF guard blocks private/loopback IPs, so
-#   targets need TLS and scans must go through the test-only allow_private path
-#   (see app/core/pipeline.py) -- never relax the guard globally.
-# * To let the worker reach targets, attach it to this network from an override
-#   file, e.g. `networks: [backend, eval]` with `eval: {external: true, name: cawasma-eval}`.
+# Start with: make eval-up
 
 name: cawasma-eval
 
-services: {}
-  # example-target:
-  #   image: <vulnerable-app-image>
-  #   networks: [eval]
+x-cawasma-eval-environment: &cawasma-eval-environment
+  # Applied only by an evaluation-stack override when the CAWASMA API/worker
+  # is attached to cawasma-eval. The current backend does not yet consume this
+  # setting; Atta should wire it into the SSRF allow-list before eval scans.
+  ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop@sha256:318714401c46c3c0a2458b5dccfc84af8e4839181d1a723701f8a6822b19294f
+    hostname: juice-shop
+    ports:
+      - "127.0.0.1:${JUICE_SHOP_PORT:-3001}:3000"
+    networks: [eval]
+    healthcheck:
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - >-
+          require('http').get('http://127.0.0.1:3000/', r =>
+          process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () =>
+          process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  dvwa:
+    image: vulnerables/web-dvwa@sha256:dae203fe11646a86937bf04db0079adef295f426da68a92b40e3b181f337daa7
+    hostname: dvwa
+    ports:
+      - "127.0.0.1:${DVWA_PORT:-3002}:80"
+    networks: [eval]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          php -r '$$f=@fopen("http://127.0.0.1/", "r"); exit($$f === false ? 1 :
+          0);'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  vampi:
+    image: erev0s/vampi@sha256:7ba0b0a8a2f2a33059054b13c98e932c3102687bd3f687df8952e36575927f1b
+    hostname: vampi
+    ports:
+      - "127.0.0.1:${VAMPI_PORT:-3003}:5000"
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  crapi-identity:
+    image: crapi/crapi-identity@sha256:327ab8561472891a5bc2145ba877de01e717674fa271834d22229ed4df8fc36d
+    hostname: crapi-identity
+    environment:
+      <<: *cawasma-eval-environment
+      DB_NAME: crapi
+      DB_USER: admin
+      DB_PASSWORD: crapisecretpassword
+      DB_HOST: crapi-postgres
+      DB_PORT: "5432"
+      SERVER_PORT: "8080"
+      JWT_SECRET: cawasma-eval
+      MAILHOG_HOST: crapi-mailhog
+      MAILHOG_PORT: "1025"
+      MAILHOG_DOMAIN: example.com
+      SMTP_HOST: crapi-mailhog
+      SMTP_PORT: "1025"
+      SMTP_EMAIL: eval@example.com
+      SMTP_PASS: cawasma-eval
+      SMTP_FROM: no-reply@example.com
+      SMTP_AUTH: "false"
+      SMTP_STARTTLS: "false"
+      API_GATEWAY_URL: http://crapi-web
+      ENABLE_SHELL_INJECTION: "false"
+      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+      TLS_ENABLED: "false"
+    depends_on:
+      crapi-postgres:
+        condition: service_healthy
+      crapi-mongo:
+        condition: service_healthy
+      crapi-mailhog:
+        condition: service_healthy
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "/app/health.sh"]
+      interval: 15s
+      timeout: 15s
+      retries: 15
+      start_period: 30s
+
+  crapi-community:
+    image: crapi/crapi-community@sha256:e5defa174e410bb615c14f257d52066d0534b87c4f4e25a93e4a12a0aea99323
+    hostname: crapi-community
+    environment:
+      <<: *cawasma-eval-environment
+      DB_NAME: crapi
+      DB_USER: admin
+      DB_PASSWORD: crapisecretpassword
+      DB_HOST: crapi-postgres
+      DB_PORT: "5432"
+      SERVER_PORT: "8087"
+      IDENTITY_SERVICE: crapi-identity:8080
+      MONGO_DB_HOST: crapi-mongo
+      MONGO_DB_PORT: "27017"
+      MONGO_DB_USER: admin
+      MONGO_DB_PASSWORD: crapisecretpassword
+      MONGO_DB_NAME: crapi
+      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+      TLS_ENABLED: "false"
+    depends_on:
+      crapi-postgres:
+        condition: service_healthy
+      crapi-mongo:
+        condition: service_healthy
+      crapi-identity:
+        condition: service_healthy
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "/app/health.sh"]
+      interval: 15s
+      timeout: 15s
+      retries: 15
+      start_period: 30s
+
+  crapi-workshop:
+    image: crapi/crapi-workshop@sha256:ab904182110a1ab11cef43cfd86c898c1139ebb08181ba7775dbcff8db2ea8cf
+    hostname: crapi-workshop
+    environment:
+      <<: *cawasma-eval-environment
+      DB_NAME: crapi
+      DB_USER: admin
+      DB_PASSWORD: crapisecretpassword
+      DB_HOST: crapi-postgres
+      DB_PORT: "5432"
+      SERVER_PORT: "8000"
+      IDENTITY_SERVICE: crapi-identity:8080
+      MONGO_DB_HOST: crapi-mongo
+      MONGO_DB_PORT: "27017"
+      MONGO_DB_USER: admin
+      MONGO_DB_PASSWORD: crapisecretpassword
+      MONGO_DB_NAME: crapi
+      SECRET_KEY: cawasma-eval
+      API_GATEWAY_URL: http://crapi-web
+      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+      TLS_ENABLED: "false"
+    depends_on:
+      crapi-postgres:
+        condition: service_healthy
+      crapi-mongo:
+        condition: service_healthy
+      crapi-identity:
+        condition: service_healthy
+      crapi-community:
+        condition: service_healthy
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "/app/health.sh"]
+      interval: 15s
+      timeout: 15s
+      retries: 15
+      start_period: 30s
+
+  crapi-web:
+    image: crapi/crapi-web@sha256:b14b5964af336d200449e28ffac9371e8929d4450f1e53e2787b4401adc31695
+    hostname: crapi-web
+    ports:
+      - "127.0.0.1:${CRAPI_PORT:-3004}:80"
+    environment:
+      <<: *cawasma-eval-environment
+      COMMUNITY_SERVICE: crapi-community:8087
+      IDENTITY_SERVICE: crapi-identity:8080
+      WORKSHOP_SERVICE: crapi-workshop:8000
+      CHATBOT_SERVICE: crapi-community:8087
+      MAILHOG_WEB_SERVICE: crapi-mailhog:8025
+      TLS_ENABLED: "false"
+      ALLOWED_INTERNAL_HOSTS: "juice-shop,dvwa,vampi,crapi-web"
+    depends_on:
+      crapi-community:
+        condition: service_healthy
+      crapi-identity:
+        condition: service_healthy
+      crapi-workshop:
+        condition: service_healthy
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/health || exit 1"]
+      interval: 15s
+      timeout: 15s
+      retries: 15
+      start_period: 45s
+
+  crapi-postgres:
+    image: postgres@sha256:a28005f051c26406f8e718e411a1068462a297dae049cddb513194d36dd8f29f
+    hostname: crapi-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: crapisecretpassword
+      POSTGRES_DB: crapi
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d crapi"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  crapi-mongo:
+    image: mongo@sha256:6189a342f8da4568b4b111c378a890b1fe186b1bc133742bff8811fe63d2e01e
+    hostname: crapi-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: crapisecretpassword
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --quiet --eval 'db.runCommand({ ping: 1 }).ok' localhost:27017/test | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  crapi-mailhog:
+    image: crapi/mailhog@sha256:48054e74c771688f167d648d6d2e8c8f5f2244720ea0ab5e4e2ae37056e67e6c
+    hostname: crapi-mailhog
+    environment:
+      MH_MONGO_URI: admin:crapisecretpassword@crapi-mongo:27017
+      MH_STORAGE: mongodb
+    networks: [eval]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
 networks:
   eval:
     name: cawasma-eval
-    internal: true   # no outbound internet from evaluation targets
+    internal: true

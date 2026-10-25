@@ -1,0 +1,29 @@
+target: dvwa
+base_url: http://127.0.0.1:3002
+status: starter-unverified
+known_issues:
+  - endpoint: /vulnerabilities/sqli/
+    check_id: API-001
+    expected: present
+    source: "official docs: https://github.com/digininja/DVWA"
+    notes: "Starter hypothesis: intentionally vulnerable SQL injection page; check mapping needs manual confirmation."
+    verification: unverified
+  - endpoint: /vulnerabilities/xss_r/
+    check_id: HDR-001
+    expected: present
+    source: "official docs: https://github.com/digininja/DVWA"
+    notes: "Starter hypothesis: response is relevant to browser injection checks; verify CSP behavior without exploitation."
+    verification: unverified
+  - endpoint: /setup.php
+    check_id: API-001
+    expected: absent
+    source: "official docs: https://github.com/digininja/DVWA"
+    notes: "Setup page is intentionally exposed in the lab but is not an authenticated sensitive API endpoint."
+    verification: unverified
+must_not_fire:
+  - API-002
+  - COR-001
+  - COR-002
+  - CKI-001
+  - CKI-002
+  - CKI-003
