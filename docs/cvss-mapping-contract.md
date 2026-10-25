@@ -1,4 +1,4 @@
-# Context → CVSS mapping contract, version 1.0.0
+# Context → CVSS mapping contract, version 1.1.0
 
 What Asim's code and config must provide so the engine can turn a check's
 CVSS v3.1 **base** vector into a **context-aware** score through CVSS v3.1
@@ -131,40 +131,47 @@ environmental score. That is the finding's `final_score`. The official
 ## 3. `config/chains.yaml`
 
 Attack-chain templates: findings that together form a worse exploitation path.
+The trigger logic the engine implements is in [chain-templates.md](chain-templates.md).
 
 ```yaml
 chains_version: 1
 chains:
-  - chain_id: C005
-    name: .env Exposure -> Version Leak -> Full Compromise
+  - chain_id: C001
+    name: Session theft via XSS
     description: >-
-      An exposed .env file combined with server version disclosure can lead to
-      full compromise.
-    requires: [INF-003, HDR-007, INF-004]
-    mandatory: [INF-003]
-    min_matches: 2
-    composite_score: 9.8
-    severity: CRITICAL
+      A session cookie readable by scripts on a host that has no effective CSP.
+    groups:                       # every group needs >= 1 finding
+      - [CKI-001]
+      - [HDR-002, HDR-013]
+    scope: same_host              # same_endpoint | same_host | any_endpoint
+    endpoint_sensitivity: []      # optional: a member's endpoint must have one of these classes
+    body_signals: []              # optional: a member's endpoint response must show one of these
+    composite_cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:N
+    severity: CRITICAL            # must equal the bucket of the vector's score (9.3)
 ```
 
 | Field | Rule |
 |-------|------|
 | `chain_id` | `C` + 3 digits, unique |
 | `name` | 3–255 chars |
-| `description` | ≥ 10 chars |
-| `requires` | ≥ 2 distinct check ids that can contribute; each must exist in `checks.yaml` or the catalog |
-| `mandatory` | subset of `requires`; all must be present for the chain to fire (may be empty) |
-| `min_matches` | how many of `requires` (counting mandatory ones) must be present; `len(mandatory) ≤ min_matches ≤ len(requires)` |
-| `composite_score` | 0–10: the documented template score for this pattern, **not** a computed CVSS |
-| `severity` | must equal the bucket of `composite_score` (`CRITICAL` ≥ 9.0, `HIGH` ≥ 7.0, `MEDIUM` ≥ 4.0, `LOW` ≥ 0.1) |
+| `description` | ≥ 10 chars: why these findings combine |
+| `groups` | ≥ 1 group, each ≥ 1 check id (from `checks.yaml` or the catalog), no id twice. The chain needs **one finding from every group** |
+| `scope` | where the members must be: `same_endpoint` (one response), `same_host`, or `any_endpoint` on the target (default) |
+| `endpoint_sensitivity` | optional list of classes (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`); one member finding's endpoint must have one |
+| `body_signals` | optional list of signals (`CREDENTIALS`, `PII`, `FINANCIAL`, `INTERNAL_IP`); one member finding's endpoint must show one |
+| `composite_cvss_vector` | CVSS v3.1 **base** vector for the combined exploit. The chain score is its base score, so it stays standards-valid |
+| `severity` | must equal the bucket of the chain score (`CRITICAL` ≥ 9.0, `HIGH` ≥ 7.0, `MEDIUM` ≥ 4.0, `LOW` ≥ 0.1) |
 
-A chain fires for a scan when every `mandatory` check and at least
-`min_matches` of `requires` produced findings. Every matching finding becomes a
-member of the chain.
+The validator also enforces SRS objective O4: **the chain score must exceed
+the base score of every member** check.
 
-The committed file contains one example (C005). The engine keeps using the five
-templates in `backend/app/core/chains.py` until this file holds the full set.
-Moving C001–C004 over is part of filling it in.
+**Original style (1.0), still accepted:** `requires` (≥ 2 ids), `mandatory`
+(subset), `min_matches`, and a hand-set `composite_score` instead of
+`groups` and a vector. A chain uses one style or the other, never both. If a
+1.0 chain also gives `composite_cvss_vector`, the two scores must agree.
+
+The engine keeps using the templates in `backend/app/core/chains.py` until it
+reads this file (Atta).
 
 ## Validation
 
@@ -179,7 +186,11 @@ every push. Models: `backend/app/core/specs.py`.
 ## Versioning
 
 `ML_CONTRACT_VERSION` (`app/core/contracts.py`) and the `*_version` keys in the
-files are bumped together with this document. Adding a `BodySignal` is a minor
+files are bumped together with this document.
+
+- **1.1.0** (2026-10-25): chains get `groups`, `scope`, `endpoint_sensitivity`,
+  `body_signals` and `composite_cvss_vector`; the validator checks composite >
+  members. Additive: 1.0 chain files stay valid (`chains_version` stays 1). Adding a `BodySignal` is a minor
 change: add its row to `cvss_mapping.yaml` in the same PR, or validation fails.
 Changing a function signature or removing a value is a major change; agree it
 between Atta and Asim first.

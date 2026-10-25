@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from app.db.models.enums import ContextClass
 
-ML_CONTRACT_VERSION = "1.0.0"
+ML_CONTRACT_VERSION = "1.1.0"   # 1.1: chains.yaml groups/scope/context/vectors
 
 #: Endpoint sensitivity: CRITICAL, HIGH, MEDIUM, LOW (same values as the DB enum).
 SensitivityClass = ContextClass
